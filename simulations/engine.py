@@ -34,7 +34,7 @@ class Engine:
         for i in range(num_malicious):
             agent_id = f"M_{i}"
             # Malicious attacker orchestrates Sybils
-            self.agents[agent_id] = Agent(agent_id, is_malicious=True, b=self.B, l=self.L, r=self.R)
+            self.agents[agent_id] = Agent(agent_id, is_malicious=True, b=self.B, l_amount=self.L, r=self.R)
             self.circulating_supply += self.agents[agent_id].balance
 
         # Track Time-Weighted Conviction W for all agents using EMA
