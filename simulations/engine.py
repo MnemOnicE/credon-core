@@ -125,9 +125,10 @@ class Engine:
             sponsor = self.agents[a_id]
             # Interact with a few other honest nodes randomly to build the social graph
             import random
-            friends = random.sample(honest_ids, min(3, len(honest_ids)))
-            for friend in friends:
-                if friend != a_id:
+            other_honest_ids = [hid for hid in honest_ids if hid != a_id]
+            if other_honest_ids:
+                friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
+                for friend in friends:
                     sponsor.interact_with(friend, 1)
 
             # Try to sponsor a candidate
