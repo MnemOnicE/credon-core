@@ -382,13 +382,14 @@ class Engine:
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
                     # Check Approval
                     total_v = v_t_yes + v_t_no
-                    if total_v > 0 and (v_t_yes / total_v) >= self.minor_approval:
-                        # Execute minor proposal (for this sim, just marking it done)
-                        p.status = "executed"
-                        print(f"-> Governance: Minor Proposal {p.id} executed!")
-                    elif total_v > 0 and (v_t_no / total_v) >= self.minor_approval:
-                        p.status = "rejected"
-                        print(f"-> Governance: Minor Proposal {p.id} rejected!")
+                    if total_v > 0:
+                        if (v_t_yes / total_v) >= self.minor_approval:
+                            # Execute minor proposal (for this sim, just marking it done)
+                            p.status = "executed"
+                            print(f"-> Governance: Minor Proposal {p.id} executed!")
+                        else:
+                            p.status = "rejected"
+                            print(f"-> Governance: Minor Proposal {p.id} rejected!")
 
         # Subtract minted amount from reservoir
         self.R_res -= M_epoch
