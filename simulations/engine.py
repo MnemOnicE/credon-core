@@ -44,6 +44,7 @@ class Engine:
 
         # Track initial balances to compute ROI later
         self.initial_balances = {a_id: self.agents[a_id].balance for a_id in self.agents}
+        self.history = []
 
         # Global Loan Registry
         self.active_loans = []
@@ -242,6 +243,24 @@ class Engine:
         avg_m_trust = sum(T_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
         print(f"Avg Trust Score (Honest):        {avg_h_trust:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_trust:.4f}")
+        # Append telemetry data to history
+        self.history.append({
+            "epoch": self.epoch,
+            "verified_volume": epoch_repaid_principal,
+            "rewards_reservoir": self.R_res,
+            "circulating_supply": self.circulating_supply,
+            "ev_honest": ev_honest,
+            "ev_attacker": ev_attacker,
+            "avg_h_roi": avg_h_roi,
+            "avg_m_roi": avg_m_roi,
+            "avg_h_trust": avg_h_trust,
+            "avg_m_trust": avg_m_trust
+        })
+
+
+
+    def get_results(self):
+        return self.history
 
 if __name__ == "__main__":
     engine = Engine(num_honest=20, num_malicious=5)
