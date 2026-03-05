@@ -1,0 +1,14 @@
+--- simulations/engine.py
++++ simulations/engine.py
+@@ -386,7 +386,11 @@
+         print(f"Circulating Supply:              {self.circulating_supply:.2f} CRE")
+         print(f"Game Theory EV(Honest):          {ev_honest:.2f} CRE per interaction")
+         print(f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)")
+         print(f"Actual Avg Honest ROI so far:    {avg_h_roi:.2f} CRE")
+         print(f"Actual Avg Attacker ROI so far:  {avg_m_roi:.2f} CRE")
++        print(f"Governance - Total $CRED:        {total_cred}")
++        print(f"Governance - Active Proposals:   {len(active_proposals)}")
++        for p in active_proposals:
++            print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
+
+         # Print Trust Scores to show Sybil isolation

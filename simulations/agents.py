@@ -6,6 +6,8 @@ class Agent:
         self.L = l_amount # Loan principal amount (typically under-collateralized vs 2B)
         self.R = r # Integrity reward
         self.balance = 50000 if is_malicious else 2500 # Starting capital
+        self.cred_balance = 0 # Soulbound governance token
+        self.staked_cred = 0 # Amount of $CRED currently locked in proposals
         self.active_loans = []
 
         # Local memory/state for custom adjacency list
@@ -46,6 +48,7 @@ class Agent:
     def process_graduation(self, bond_returned, reward):
         """Receives back their bond + the Integrity Reward R."""
         self.balance += bond_returned + reward
+        self.cred_balance += 1 # Mint 1 $CRED for verified activity
 
     def execute_default(self, loan_record):
         """Malicious agent defaults, keeping the loan L but losing bonds."""

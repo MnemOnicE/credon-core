@@ -1,6 +1,64 @@
 import math
 from agents import Agent
 
+class Proposal:
+    def __init__(self, prop_id, proposer_id, target_rho, creation_epoch, is_core=True):
+        self.id = prop_id
+        self.proposer_id = proposer_id
+        self.target_rho = target_rho
+        self.creation_epoch = creation_epoch
+        self.is_core = is_core
+
+        # Dictionary of agent_id -> { "amount": staked_cred, "epoch_staked": epoch, "vote": True/False }
+        self.votes = {}
+        self.status = "active"
+
+        # Conviction voting state for core proposals
+        self.y_t_yes = 0.0
+        self.y_t_no = 0.0
+
+    def cast_vote(self, agent_id, amount, vote, current_epoch):
+        if agent_id in self.votes:
+            if self.votes[agent_id]["vote"] != vote:
+                self.votes[agent_id]["epoch_staked"] = current_epoch
+                self.votes[agent_id]["vote"] = vote
+
+            self.votes[agent_id]["amount"] = amount
+        else:
+            self.votes[agent_id] = {
+                "amount": amount,
+                "epoch_staked": current_epoch,
+                "vote": vote
+            }
+
+    def update_conviction(self, alpha, t_max, current_epoch):
+        v_t_yes = 0.0
+        v_t_no = 0.0
+
+        total_staked_in_vote = 0.0
+
+        for agent_id, vote_data in self.votes.items():
+            amount = vote_data["amount"]
+            epoch_staked = vote_data["epoch_staked"]
+            vote = vote_data["vote"]
+
+            # Calculate time-weighted voting power
+            t_staked = current_epoch - epoch_staked
+            multiplier = min(1.0, t_staked / t_max) if t_max > 0 else 1.0
+            V = amount * multiplier
+            total_staked_in_vote += amount
+
+            if vote:
+                v_t_yes += V
+            else:
+                v_t_no += V
+
+        # y_t = alpha * y_{t-1} + V_t
+        self.y_t_yes = (alpha * self.y_t_yes) + v_t_yes
+        self.y_t_no = (alpha * self.y_t_no) + v_t_no
+
+        return v_t_yes, v_t_no, total_staked_in_vote
+
 class Engine:
     def __init__(self, num_honest=20, num_malicious=5):
         if num_honest + num_malicious <= 0:
@@ -14,6 +72,16 @@ class Engine:
         self.R_res = 0.0          # Rewards Reservoir
         self.circulating_supply = 0.0
         self.rho = 0.05           # Reward Release Rate (5%)
+
+        # ---------------- Governance Parameters ----------------
+        self.proposals = []
+        self.next_proposal_id = 1
+        self.alpha_conviction = 0.8
+        self.t_max = 5
+        self.core_quorum = 0.25
+        self.core_approval = 0.66
+        self.minor_quorum = 0.10
+        self.minor_approval = 0.51
 
         # ---------------- TrustLedger Math Weights ----------------
         self.alpha = 0.4  # Transitive Trust (E) weight
@@ -208,6 +276,120 @@ class Engine:
 
         # Calculate Minted amount
         M_epoch = self.rho * self.R_res
+
+        # Calculate inflation rate
+        inflation_rate = (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
+
+        # 3.5 Governance: Agents Propose and Vote
+
+        # Total $CRED in network
+        total_cred = sum(agent.cred_balance for agent in self.agents.values())
+
+        active_proposals = [p for p in self.proposals if p.status == "active"]
+
+        # Honest Agent Behavior
+        if total_cred > 0:
+            target_rho = None
+            if inflation_rate > 0.02:
+                target_rho = max(0.01, self.rho - 0.01)
+            # Lowering the threshold so they propose for simulation purposes
+            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
+                target_rho = min(0.50, self.rho + 0.01)
+
+            # Check if there is an active proposal matching the target
+            honest_proposal = next((p for p in active_proposals if p.target_rho == target_rho), None)
+
+            if target_rho is not None and honest_proposal is None:
+                # Find an honest agent with $CRED to propose
+                proposer = next((self.agents[a_id] for a_id in honest_ids if self.agents[a_id].cred_balance > 0), None)
+                if proposer:
+                    new_prop = Proposal(self.next_proposal_id, proposer.id, target_rho, self.epoch, is_core=True)
+                    self.proposals.append(new_prop)
+                    self.next_proposal_id += 1
+                    active_proposals.append(new_prop)
+                    honest_proposal = new_prop
+
+            # Honest agents vote
+            for a_id in honest_ids:
+                agent = self.agents[a_id]
+                if agent.cred_balance > 0:
+                    for p in active_proposals:
+                        if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
+                            # Vote yes on reasonable proposals
+                            p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
+                        else:
+                            # Vote no on extreme proposals
+                            p.cast_vote(a_id, agent.cred_balance, False, self.epoch)
+
+        # Malicious Agent Behavior
+        # They always want to maximize rho to trigger hyperinflation
+        malicious_target_rho = 0.50
+        malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
+
+        if malicious_proposal is None and malicious_ids:
+            # Malicious agent tries to propose if they have $CRED (unlikely if they default)
+            m_proposer = next((self.agents[m_id] for m_id in malicious_ids if self.agents[m_id].cred_balance > 0), None)
+            if m_proposer:
+                new_prop = Proposal(self.next_proposal_id, m_proposer.id, malicious_target_rho, self.epoch, is_core=True)
+                self.proposals.append(new_prop)
+                self.next_proposal_id += 1
+                active_proposals.append(new_prop)
+                malicious_proposal = new_prop
+
+        # Malicious agents vote
+        for m_id in malicious_ids:
+            agent = self.agents[m_id]
+            if agent.cred_balance > 0:
+                for p in active_proposals:
+                    if p.target_rho == malicious_target_rho:
+                        p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
+                    else:
+                        p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
+
+        # 3.6 Tally Votes and Update Status
+        for p in active_proposals:
+            if p.is_core:
+                # Update conviction y_t
+                _, _, _ = p.update_conviction(self.alpha_conviction, self.t_max, self.epoch)
+
+                # Check if conviction threshold is met
+                # Threshold: 20% of maximum theoretical network conviction
+                max_conviction = total_cred * 1.0  # multiplier maxes at 1.0
+                conviction_threshold = 0.20 * max_conviction
+
+                # For continuous voting, we need to compare y_t to something stable or max possible.
+                # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
+                # For this simulation, max steady state conviction = total_cred / (1 - alpha_conviction).
+                steady_state_max = max_conviction / (1 - self.alpha_conviction) if self.alpha_conviction < 1 else max_conviction
+                conviction_threshold = 0.20 * steady_state_max
+
+                # Quorum check (just simple check if total votes > quorum)
+                # Note: Conviction voting usually handles quorum implicitly by requiring enough y_t
+
+                if p.y_t_yes > conviction_threshold and p.y_t_yes > p.y_t_no:
+                    self.rho = p.target_rho
+                    p.status = "executed"
+                    print(f"-> Governance: Proposal {p.id} executed! New rho: {self.rho:.4f}")
+                elif p.y_t_no > conviction_threshold and p.y_t_no > p.y_t_yes:
+                    p.status = "rejected"
+                    print(f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction.")
+            else:
+                # Minor proposal - Discrete voting with dynamic quorums
+                # Get actual time-weighted voting power V_t, and total raw staked tokens.
+                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
+
+                # Check Quorum (total actual tokens staked regardless of time weight)
+                if total_staked_in_vote >= self.minor_quorum * total_cred:
+                    # Check Approval
+                    total_v = v_t_yes + v_t_no
+                    if total_v > 0 and (v_t_yes / total_v) >= self.minor_approval:
+                        # Execute minor proposal (for this sim, just marking it done)
+                        p.status = "executed"
+                        print(f"-> Governance: Minor Proposal {p.id} executed!")
+                    elif total_v > 0 and (v_t_no / total_v) >= self.minor_approval:
+                        p.status = "rejected"
+                        print(f"-> Governance: Minor Proposal {p.id} rejected!")
+
         # Subtract minted amount from reservoir
         self.R_res -= M_epoch
         # Add to circulating supply (distributed across network conceptually)
@@ -237,6 +419,10 @@ class Engine:
         print(f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)")
         print(f"Actual Avg Honest ROI so far:    {avg_h_roi:.2f} CRE")
         print(f"Actual Avg Attacker ROI so far:  {avg_m_roi:.2f} CRE")
+        print(f"Governance - Total $CRED:        {total_cred}")
+        print(f"Governance - Active Proposals:   {len(active_proposals)}")
+        for p in active_proposals:
+            print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
 
         # Print Trust Scores to show Sybil isolation
         avg_h_trust = sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
@@ -254,7 +440,8 @@ class Engine:
             "avg_h_roi": avg_h_roi,
             "avg_m_roi": avg_m_roi,
             "avg_h_trust": avg_h_trust,
-            "avg_m_trust": avg_m_trust
+            "avg_m_trust": avg_m_trust,
+            "total_cred": total_cred
         })
 
 
@@ -264,5 +451,5 @@ class Engine:
 
 if __name__ == "__main__":
     engine = Engine(num_honest=20, num_malicious=5)
-    for _ in range(5):
+    for _ in range(15):
         engine.run_epoch()

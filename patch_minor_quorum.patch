@@ -1,0 +1,25 @@
+--- simulations/engine.py
++++ simulations/engine.py
+@@ -370,6 +370,19 @@
+                     print(f"-> Governance: Proposal {p.id} executed! New rho: {self.rho:.4f}")
+                 elif p.y_t_no > conviction_threshold and p.y_t_no > p.y_t_yes:
+                     p.status = "rejected"
+                     print(f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction.")
++            else:
++                # Minor proposal - Discrete voting with dynamic quorums
++                # Get actual time-weighted voting power V_t, and total raw staked tokens.
++                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
++
++                # Check Quorum (total actual tokens staked regardless of time weight)
++                if total_staked_in_vote >= self.minor_quorum * total_cred:
++                    # Check Approval
++                    total_v = v_t_yes + v_t_no
++                    if total_v > 0 and (v_t_yes / total_v) >= self.minor_approval:
++                        # Execute minor proposal (for this sim, just marking it done)
++                        p.status = "executed"
++                        print(f"-> Governance: Minor Proposal {p.id} executed!")
++                    elif total_v > 0 and (v_t_no / total_v) >= self.minor_approval:
++                        p.status = "rejected"
++                        print(f"-> Governance: Minor Proposal {p.id} rejected!")
+
+         # Subtract minted amount from reservoir

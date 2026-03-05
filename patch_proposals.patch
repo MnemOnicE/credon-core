@@ -1,0 +1,13 @@
+--- simulations/engine.py
++++ simulations/engine.py
+@@ -291,9 +291,10 @@
+         if total_cred > 0:
+             target_rho = None
+             if inflation_rate > 0.02:
+                 target_rho = max(0.01, self.rho - 0.01)
+-            elif inflation_rate < 0.02 and self.R_res > (0.10 * self.circulating_supply):
++            # Lowering the threshold so they propose for simulation purposes
++            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
+                 target_rho = min(0.50, self.rho + 0.01)
+
+             # Check if there is an active proposal matching the target
