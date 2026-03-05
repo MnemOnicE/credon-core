@@ -1,0 +1,70 @@
+--- simulations/engine.py
++++ simulations/engine.py
+@@ -1,6 +1,52 @@
+ import math
+ from agents import Agent
+
++class Proposal:
++    def __init__(self, prop_id, proposer_id, target_rho, creation_epoch, is_core=True):
++        self.id = prop_id
++        self.proposer_id = proposer_id
++        self.target_rho = target_rho
++        self.creation_epoch = creation_epoch
++        self.is_core = is_core
++
++        # Dictionary of agent_id -> { "amount": staked_cred, "epoch_staked": epoch, "vote": True/False }
++        self.votes = {}
++        self.status = "active"
++
++        # Conviction voting state for core proposals
++        self.y_t_yes = 0.0
++        self.y_t_no = 0.0
++
++    def cast_vote(self, agent_id, amount, vote, current_epoch):
++        self.votes[agent_id] = {
++            "amount": amount,
++            "epoch_staked": current_epoch,
++            "vote": vote
++        }
++
++    def update_conviction(self, alpha, t_max, current_epoch):
++        v_t_yes = 0.0
++        v_t_no = 0.0
++
++        for agent_id, vote_data in self.votes.items():
++            amount = vote_data["amount"]
++            epoch_staked = vote_data["epoch_staked"]
++            vote = vote_data["vote"]
++
++            # Calculate time-weighted voting power
++            t_staked = current_epoch - epoch_staked
++            multiplier = min(1.0, t_staked / t_max) if t_max > 0 else 1.0
++            V = amount * multiplier
++
++            if vote:
++                v_t_yes += V
++            else:
++                v_t_no += V
++
++        # y_t = alpha * y_{t-1} + V_t
++        self.y_t_yes = (alpha * self.y_t_yes) + v_t_yes
++        self.y_t_no = (alpha * self.y_t_no) + v_t_no
++
+ class Engine:
+     def __init__(self, num_honest=20, num_malicious=5):
+         if num_honest + num_malicious <= 0:
+@@ -16,6 +62,14 @@
+         self.R_res = 0.0          # Rewards Reservoir
+         self.circulating_supply = 0.0
+         self.rho = 0.05           # Reward Release Rate (5%)
++
++        # ---------------- Governance Parameters ----------------
++        self.proposals = []
++        self.next_proposal_id = 1
++        self.alpha_conviction = 0.8
++        self.t_max = 5
++        self.core_quorum = 0.25
++        self.core_approval = 0.66
+
+         # ---------------- TrustLedger Math Weights ----------------
+         self.alpha = 0.4  # Transitive Trust (E) weight

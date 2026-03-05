@@ -1,0 +1,26 @@
+--- simulations/engine.py
++++ simulations/engine.py
+@@ -16,11 +16,18 @@
+         self.y_t_no = 0.0
+
+     def cast_vote(self, agent_id, amount, vote, current_epoch):
+-        self.votes[agent_id] = {
+-            "amount": amount,
+-            "epoch_staked": current_epoch,
+-            "vote": vote
+-        }
++        if agent_id in self.votes:
++            if self.votes[agent_id]["vote"] != vote:
++                self.votes[agent_id]["epoch_staked"] = current_epoch
++                self.votes[agent_id]["vote"] = vote
++
++            self.votes[agent_id]["amount"] = amount
++        else:
++            self.votes[agent_id] = {
++                "amount": amount,
++                "epoch_staked": current_epoch,
++                "vote": vote
++            }
+
+     def update_conviction(self, alpha, t_max, current_epoch):
+         v_t_yes = 0.0
