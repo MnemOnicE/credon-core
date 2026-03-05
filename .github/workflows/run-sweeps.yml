@@ -1,0 +1,38 @@
+name: Run Sweeps & Generate Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'simulations/**'
+
+jobs:
+  run-sweeps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas matplotlib seaborn
+
+      - name: Run Sweep Analytics
+        run: |
+          python simulations/sweep.py
+
+      - name: Commit Visual Artifacts
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: auto-generate sweep visual artifacts"
+          file_pattern: "docs/results/*.png"
