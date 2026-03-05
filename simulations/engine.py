@@ -23,6 +23,9 @@ class Proposal:
                 self.votes[agent_id]["epoch_staked"] = current_epoch
                 self.votes[agent_id]["vote"] = vote
 
+            elif amount > self.votes[agent_id]["amount"]:
+                # If amount increases, update timestamp to prevent conviction boosting
+                self.votes[agent_id]["epoch_staked"] = current_epoch
             self.votes[agent_id]["amount"] = amount
         else:
             self.votes[agent_id] = {
@@ -44,7 +47,7 @@ class Proposal:
 
             # Calculate time-weighted voting power
             t_staked = current_epoch - epoch_staked
-            multiplier = min(1.0, t_staked / t_max) if t_max > 0 else 1.0
+            multiplier = min(1.0, (t_staked + 1) / t_max) if t_max > 0 else 1.0
             V = amount * multiplier
             total_staked_in_vote += amount
 
@@ -56,6 +59,32 @@ class Proposal:
         # y_t = alpha * y_{t-1} + V_t
         self.y_t_yes = (alpha * self.y_t_yes) + v_t_yes
         self.y_t_no = (alpha * self.y_t_no) + v_t_no
+
+        return v_t_yes, v_t_no, total_staked_in_vote
+
+    def calculate_discrete_votes(self, current_epoch, t_max):
+        """Calculates votes for minor proposals without modifying conviction state."""
+        v_t_yes = 0.0
+        v_t_no = 0.0
+        total_staked_in_vote = 0.0
+
+        for agent_id, vote_data in self.votes.items():
+            amount = vote_data["amount"]
+            epoch_staked = vote_data["epoch_staked"]
+            vote = vote_data["vote"]
+
+            # Calculate time-weighted voting power.
+            # For discrete votes evaluated in the current epoch, time-weight is 1.0
+            # to allow immediate impact.
+            t_staked = current_epoch - epoch_staked
+            multiplier = min(1.0, (t_staked + 1) / t_max) if t_max > 0 else 1.0 # Added +1 so current epoch votes count
+            V = amount * multiplier
+            total_staked_in_vote += amount
+
+            if vote:
+                v_t_yes += V
+            else:
+                v_t_no += V
 
         return v_t_yes, v_t_no, total_staked_in_vote
 
@@ -82,6 +111,12 @@ class Engine:
         self.core_approval = 0.66
         self.minor_quorum = 0.10
         self.minor_approval = 0.51
+
+        # Honest Agent Constants
+        self.INFLATION_TARGET = 0.02
+        self.RHO_ADJUSTMENT_STEP = 0.01
+        self.RHO_MAX = 0.50
+        self.CAPITALIZATION_THRESHOLD = 0.001
 
         # ---------------- TrustLedger Math Weights ----------------
         self.alpha = 0.4  # Transitive Trust (E) weight
@@ -290,11 +325,11 @@ class Engine:
         # Honest Agent Behavior
         if total_cred > 0:
             target_rho = None
-            if inflation_rate > 0.02:
-                target_rho = max(0.01, self.rho - 0.01)
+            if inflation_rate > self.INFLATION_TARGET:
+                target_rho = max(0.01, self.rho - self.RHO_ADJUSTMENT_STEP)
             # Lowering the threshold so they propose for simulation purposes
-            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
-                target_rho = min(0.50, self.rho + 0.01)
+            elif inflation_rate < self.INFLATION_TARGET and self.R_res > (self.CAPITALIZATION_THRESHOLD * self.circulating_supply):
+                target_rho = min(self.RHO_MAX, self.rho + self.RHO_ADJUSTMENT_STEP)
 
             # Check if there is an active proposal matching the target
             honest_proposal = next((p for p in active_proposals if p.target_rho == target_rho), None)
@@ -314,7 +349,7 @@ class Engine:
                 agent = self.agents[a_id]
                 if agent.cred_balance > 0:
                     for p in active_proposals:
-                        if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
+                        if p.target_rho <= self.rho + self.RHO_ADJUSTMENT_STEP and p.target_rho >= self.rho - self.RHO_ADJUSTMENT_STEP:
                             # Vote yes on reasonable proposals
                             p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
                         else:
@@ -323,7 +358,7 @@ class Engine:
 
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
-        malicious_target_rho = 0.50
+        malicious_target_rho = self.RHO_MAX
         malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
 
         if malicious_proposal is None and malicious_ids:
@@ -355,8 +390,6 @@ class Engine:
                 # Check if conviction threshold is met
                 # Threshold: 20% of maximum theoretical network conviction
                 max_conviction = total_cred * 1.0  # multiplier maxes at 1.0
-                conviction_threshold = 0.20 * max_conviction
-
                 # For continuous voting, we need to compare y_t to something stable or max possible.
                 # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
                 # For this simulation, max steady state conviction = total_cred / (1 - alpha_conviction).
@@ -376,20 +409,19 @@ class Engine:
             else:
                 # Minor proposal - Discrete voting with dynamic quorums
                 # Get actual time-weighted voting power V_t, and total raw staked tokens.
-                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
+                v_t_yes, v_t_no, total_staked_in_vote = p.calculate_discrete_votes(self.epoch, self.t_max)
 
                 # Check Quorum (total actual tokens staked regardless of time weight)
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
                     # Check Approval
                     total_v = v_t_yes + v_t_no
-                    if total_v > 0:
-                        if (v_t_yes / total_v) >= self.minor_approval:
-                            # Execute minor proposal (for this sim, just marking it done)
-                            p.status = "executed"
-                            print(f"-> Governance: Minor Proposal {p.id} executed!")
-                        else:
-                            p.status = "rejected"
-                            print(f"-> Governance: Minor Proposal {p.id} rejected!")
+                    if total_v > 0 and (v_t_yes / total_v) >= self.minor_approval:
+                        # Execute minor proposal (for this sim, just marking it done)
+                        p.status = "executed"
+                        print(f"-> Governance: Minor Proposal {p.id} executed!")
+                    elif total_v > 0 and (v_t_no / total_v) >= self.minor_approval:
+                        p.status = "rejected"
+                        print(f"-> Governance: Minor Proposal {p.id} rejected!")
 
         # Subtract minted amount from reservoir
         self.R_res -= M_epoch
@@ -420,9 +452,11 @@ class Engine:
         print(f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)")
         print(f"Actual Avg Honest ROI so far:    {avg_h_roi:.2f} CRE")
         print(f"Actual Avg Attacker ROI so far:  {avg_m_roi:.2f} CRE")
+        # Refetch active proposals before printing to ensure accurate status is displayed
+        active_proposals_for_log = [p for p in self.proposals if p.status == "active"]
         print(f"Governance - Total $CRED:        {total_cred}")
-        print(f"Governance - Active Proposals:   {len(active_proposals)}")
-        for p in active_proposals:
+        print(f"Governance - Active Proposals:   {len(active_proposals_for_log)}")
+        for p in active_proposals_for_log:
             print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
 
         # Print Trust Scores to show Sybil isolation
