@@ -1,65 +1,61 @@
-import random
+class Agent:
+    def __init__(self, agent_id, is_malicious=False, b=500, l_amount=400, r=75):
+        self.id = agent_id
+        self.is_malicious = is_malicious
+        self.B = b # Bond amount
+        self.L = l_amount # Loan principal amount (typically under-collateralized vs 2B)
+        self.R = r # Integrity reward
+        self.balance = 50000 if is_malicious else 2500 # Starting capital
+        self.active_loans = []
 
-class Candidate:
-    def __init__(self, id, sponsor_id, start_step, bond_amount):
-        self.id = id
-        self.sponsor_id = sponsor_id
-        self.start_step = start_step
-        self.bond_amount = bond_amount
-        self.status = "pending"  # pending, graduated, defaulted
+        # Local memory/state for custom adjacency list
+        # Tracks who they interact with and interaction count/value
+        # {interacted_agent_id: interaction_value}
+        self.interactions = {}
 
-class HonestAgent:
-    def __init__(self, id, initial_balance=2500):
-        self.id = id
-        self.balance = initial_balance
-        self.active_bonds = []
+    def interact_with(self, other_agent_id, value=1):
+        """Records an interaction with another agent to build the social graph."""
+        if other_agent_id not in self.interactions:
+            self.interactions[other_agent_id] = 0
+        self.interactions[other_agent_id] += value
 
-    def try_sponsor(self, step, candidate_id, bond_amount=500):
-        # 5% chance per step, requires >= bond_amount
-        if self.balance >= bond_amount and random.random() < 0.05:
-            self.balance -= bond_amount
-            new_candidate = Candidate(candidate_id, self.id, step, bond_amount)
-            self.active_bonds.append(new_candidate)
-            return new_candidate
+    def try_sponsor(self, candidate_id, current_epoch):
+        """Attempts to sponsor a candidate. Costs 1 Bond (B_s)."""
+        if self.balance >= self.B:
+            self.balance -= self.B
+            return {
+                "candidate_id": candidate_id,
+                "sponsor_id": self.id,
+                "epoch_started": current_epoch,
+                "B_s": self.B,
+                "status": "pending"
+            }
         return None
 
-    def process_graduation(self, candidate, reward):
-        self.balance += candidate.bond_amount + reward
-        candidate.status = "graduated"
-        self.active_bonds.remove(candidate)
+    def post_candidate_bond(self):
+        """Candidate posts their side of the bond (B_c) to receive the loan."""
+        if self.balance >= self.B:
+            self.balance -= self.B
+            return self.B
+        return 0
 
-    def process_slash(self, candidate):
-        # Bond is lost, so we just remove the candidate and don't refund
-        candidate.status = "defaulted"
-        self.active_bonds.remove(candidate)
+    def receive_loan(self, loan_amount):
+        """Receives the loan principal L."""
+        self.balance += loan_amount
 
-class SybilAttacker:
-    def __init__(self, id, initial_balance=50000):
-        self.id = id
-        self.balance = initial_balance
-        self.active_fakes = []
-        self.initial_balance = initial_balance
+    def process_graduation(self, bond_returned, reward):
+        """Receives back their bond + the Integrity Reward R."""
+        self.balance += bond_returned + reward
 
-    def spawn_and_sponsor_fake(self, step, candidate_id, bond_amount=500):
-        # Every 10 steps. Needs to post BOTH bonds (Candidate + Sponsor)
-        total_required = bond_amount * 2
-        if step % 10 == 0 and self.balance >= total_required:
-            self.balance -= total_required
-            new_fake = Candidate(candidate_id, self.id, step, bond_amount)
-            self.active_fakes.append(new_fake)
-            return new_fake
-        return None
+    def execute_default(self, loan_record):
+        """Malicious agent defaults, keeping the loan L but losing bonds."""
+        loan_record["status"] = "defaulted"
+        return loan_record
 
-    def execute_default(self, fake, stolen_principal=500):
-        # The fake "defaults" and steals the principal. The attacker gains the principal.
-        # But loses the 1000 total bonds they posted.
-        self.balance += stolen_principal
-        fake.status = "defaulted"
-        self.active_fakes.remove(fake)
-        return fake
-
-    def graduate_fake(self, fake, reward):
-        # If a fake somehow survives (maybe they don't default), they'd get both bonds back + 2x reward
-        self.balance += (fake.bond_amount * 2) + (reward * 2)
-        fake.status = "graduated"
-        self.active_fakes.remove(fake)
+    def repay_loan(self, loan_amount, loan_record):
+        """Honest agent repays the loan L."""
+        if self.balance >= loan_amount:
+            self.balance -= loan_amount
+            loan_record["status"] = "repaid"
+            return True
+        return False
