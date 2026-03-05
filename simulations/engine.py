@@ -3,6 +3,8 @@ from agents import Agent
 
 class Engine:
     def __init__(self, num_honest=20, num_malicious=5):
+        if num_honest + num_malicious <= 0:
+            raise ValueError("Simulation must have at least one agent.")
         # ---------------- Game Theory Parameters ----------------
         self.B = 500  # Bond size (B_c and B_s)
         self.L = 400  # Loan principal (must be < 2B)
