@@ -58,11 +58,11 @@ class Engine:
         for _ in range(iterations):
             new_E = {agent_id: 0.0 for agent_id in self.agents}
             for u in self.agents.values():
-                total_interactions = sum(u.interactions.values())
+                total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
                 if total_interactions > 0:
                     for v_id, weight in u.interactions.items():
                         # u vouches for v_id
-                        normalized_weight = weight / total_interactions
+                        normalized_weight = math.sqrt(weight) / total_interactions
                         new_E[v_id] += E[u.id] * normalized_weight
 
             # Normalize to prevent explosion
@@ -130,7 +130,7 @@ class Engine:
             if other_honest_ids:
                 friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
                 for friend in friends:
-                    sponsor.interact_with(friend, 1)
+                    sponsor.interact_with(friend, self.L)
 
             # Try to sponsor a candidate
             if sponsor.balance >= self.B:
@@ -172,7 +172,7 @@ class Engine:
             # Sybil graph: attackers only interact with themselves (link farms)
             for other_m in malicious_ids:
                 if other_m != m_id:
-                    attacker.interact_with(other_m, 5) # High internal interaction
+                    attacker.interact_with(other_m, self.L * 5) # High internal interaction
 
             # Attacker controls Sponsor and Candidate (which is another Sybil or themselves)
             if attacker.balance >= (self.B * 2): # Needs 2B
