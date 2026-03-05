@@ -6,7 +6,7 @@ class Agent:
         self.L = l_amount # Loan principal amount (typically under-collateralized vs 2B)
         self.R = r # Integrity reward
         self.balance = 50000 if is_malicious else 2500 # Starting capital
-        self.active_loans = []
+
 
         # Local memory/state for custom adjacency list
         # Tracks who they interact with and interaction count/value

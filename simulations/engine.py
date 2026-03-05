@@ -1,10 +1,9 @@
 import math
+import random
 from agents import Agent
 
 class Engine:
     def __init__(self, num_honest=20, num_malicious=5):
-        if num_honest + num_malicious <= 0:
-            raise ValueError("Simulation must have at least one agent.")
         # ---------------- Game Theory Parameters ----------------
         self.B = 500  # Bond size (B_c and B_s)
         self.L = 400  # Loan principal (must be < 2B)
@@ -45,8 +44,8 @@ class Engine:
         # Track initial balances to compute ROI later
         self.initial_balances = {a_id: self.agents[a_id].balance for a_id in self.agents}
 
-        # Global Loan Registry
-        self.active_loans = []
+
+
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
@@ -124,17 +123,19 @@ class Engine:
         for a_id in honest_ids:
             sponsor = self.agents[a_id]
             # Interact with a few other honest nodes randomly to build the social graph
-            import random
-            other_honest_ids = [hid for hid in honest_ids if hid != a_id]
-            if other_honest_ids:
-                friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
-                for friend in friends:
+
+            friends = random.sample(honest_ids, min(3, len(honest_ids)))
+            for friend in friends:
+                if friend != a_id:
                     sponsor.interact_with(friend, 1)
 
             # Try to sponsor a candidate
             if sponsor.balance >= self.B:
-                # Random honest candidate
-                candidate_id = random.choice(honest_ids)
+                # Random honest candidate, excluding self
+                other_honest_ids = [hid for hid in honest_ids if hid != a_id]
+                if not other_honest_ids:
+                    continue
+                candidate_id = random.choice(other_honest_ids)
                 candidate = self.agents[candidate_id]
 
                 # Check candidate bond
@@ -144,7 +145,7 @@ class Engine:
                     if loan_record:
                         # Give loan L to candidate
                         candidate.receive_loan(self.L)
-                        self.active_loans.append(loan_record)
+
 
                         # At graduation (for simplicity we resolve in same epoch here for volume tracking,
                         # or track it over time. Let's resolve immediately for this mathematical proof loop)
@@ -183,7 +184,7 @@ class Engine:
 
                 if loan_record and b_c == self.B:
                     attacker.receive_loan(self.L)
-                    self.active_loans.append(loan_record)
+
 
                     # Sybil ATTACK: Default to steal L!
                     attacker.execute_default(loan_record)
