@@ -28,7 +28,7 @@ class Engine:
         # Initialize agents
         for i in range(num_honest):
             agent_id = f"H_{i}"
-            self.agents[agent_id] = Agent(agent_id, is_malicious=False, b=self.B, l=self.L, r=self.R)
+            self.agents[agent_id] = Agent(agent_id, is_malicious=False, b=self.B, l_amount=self.L, r=self.R)
             self.circulating_supply += self.agents[agent_id].balance
 
         for i in range(num_malicious):
