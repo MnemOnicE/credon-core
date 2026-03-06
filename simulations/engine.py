@@ -1,4 +1,5 @@
 import math
+import random
 from agents import Agent
 
 class Proposal:
@@ -117,6 +118,10 @@ class Engine:
         # Global Loan Registry
         self.active_loans = []
 
+        # Pre-compute static agent groups for performance optimization
+        self.honest_ids = [a_id for a_id in self.agents if not self.agents[a_id].is_malicious]
+        self.malicious_ids = [a_id for a_id in self.agents if self.agents[a_id].is_malicious]
+
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
         """Calculates EigenTrust-style E(u) for all agents."""
@@ -189,11 +194,10 @@ class Engine:
         epoch_repaid_principal = 0
 
         # 1. Honest Agents Act (Simulate a network graph of interactions)
-        honest_ids = [a_id for a_id in self.agents if not self.agents[a_id].is_malicious]
+        honest_ids = self.honest_ids
         for a_id in honest_ids:
             sponsor = self.agents[a_id]
             # Interact with a few other honest nodes randomly to build the social graph
-            import random
             other_honest_ids = [hid for hid in honest_ids if hid != a_id]
             if other_honest_ids:
                 friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
@@ -234,7 +238,7 @@ class Engine:
                             self.circulating_supply += (self.R * 2)
 
         # 2. Malicious Agents Act (Sybil Swarm)
-        malicious_ids = [a_id for a_id in self.agents if self.agents[a_id].is_malicious]
+        malicious_ids = self.malicious_ids
         for m_id in malicious_ids:
             attacker = self.agents[m_id]
             # Sybil graph: attackers only interact with themselves (link farms)
