@@ -119,8 +119,13 @@ class Engine:
         self.active_loans = []
 
         # Pre-compute static agent groups for performance optimization
-        self.honest_ids = [a_id for a_id in self.agents if not self.agents[a_id].is_malicious]
-        self.malicious_ids = [a_id for a_id in self.agents if self.agents[a_id].is_malicious]
+        self.honest_ids = []
+        self.malicious_ids = []
+        for a_id, agent in self.agents.items():
+            if agent.is_malicious:
+                self.malicious_ids.append(a_id)
+            else:
+                self.honest_ids.append(a_id)
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
