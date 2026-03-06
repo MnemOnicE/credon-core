@@ -1,4 +1,6 @@
 import math
+import random
+
 from agents import Agent
 
 class Proposal:
@@ -193,7 +195,6 @@ class Engine:
         for a_id in honest_ids:
             sponsor = self.agents[a_id]
             # Interact with a few other honest nodes randomly to build the social graph
-            import random
             other_honest_ids = [hid for hid in honest_ids if hid != a_id]
             if other_honest_ids:
                 friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
