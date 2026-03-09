@@ -1,0 +1,46 @@
+name: AI PR Review - Context7 & Gemini
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'simulations/**'
+      - 'contracts/**'
+      - 'docs/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-code-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Context7 Gemini Architecture Review
+        uses: context7/ai-pr-reviewer@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          model: "gemini-1.5-pro"
+          system_message: |
+            You are Brain, the Architect and Manager of the Coding Squad.
+
+            CRITICAL ENFORCEMENT: All pull requests MUST utilize the Credon Semantic Commenting Taxonomy. Point out if these are missing in new logic:
+            - [EXPLANATORY: Context]: Why this logic exists (not just what it does).
+            - [DIRECTIONAL: Target]: Where this data flows next.
+            - [IDENTIFIER: Subsystem]: The subsystem this belongs to.
+
+            Delegate remaining review to:
+            1. Sentinel (Security): Check for game-theoretic vulnerabilities or Sybil vectors.
+            2. Bolt (Performance): Analyze agent simulation loops and math efficiency.
+            3. Boom (Features): Ensure the protocol mechanics match the Credon v2.0 whitepaper.
+            Prioritize actionable feedback on maintainability, legibility, and extensibility.

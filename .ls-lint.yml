@@ -1,0 +1,13 @@
+ls:
+  simulations/*:
+    .py: snake_case
+  contracts/*:
+    .sol: PascalCase
+  docs/*:
+    .md: lowercase
+    .png: snake_case
+ignore:
+  - .git
+  - .github
+  - node_modules
+  - __pycache__

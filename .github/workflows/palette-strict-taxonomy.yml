@@ -1,0 +1,43 @@
+name: Palette Strict Taxonomy Enforcer
+
+on:
+  pull_request:
+    paths:
+      - 'simulations/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  enforce-comments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run AST Taxonomy Parser
+        id: taxonomy_check
+        run: python scripts/enforce_taxonomy.py simulations/ > taxonomy_output.txt
+
+      - name: Report Failure to PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('taxonomy_output.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚨 **Taxonomy Enforcement Failed!**\n\nBrain requires strict ontological mapping. Jules missed the following semantic tags:\n\n```\n' + output + '\n```\n\nTo alleviate this quickly, you can ask Jules to run:\n`python scripts/enforce_taxonomy.py simulations/` and fix the reported errors.'
+            })

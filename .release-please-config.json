@@ -1,0 +1,12 @@
+{
+  "packages": {
+    "simulations": {
+      "release-type": "python",
+      "package-name": "credon-simulations"
+    },
+    "contracts": {
+      "release-type": "node",
+      "package-name": "credon-contracts"
+    }
+  }
+}
