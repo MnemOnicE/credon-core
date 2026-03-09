@@ -15,4 +15,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run ls-lint
-        uses: ls-lint/action@v3.0.1
+        uses: ls-lint/action@v2.3.1
