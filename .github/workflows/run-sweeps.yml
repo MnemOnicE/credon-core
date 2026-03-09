@@ -32,7 +32,7 @@ jobs:
           python simulations/sweep.py
 
       - name: Commit Visual Artifacts
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: auto-generate sweep visual artifacts"
           file_pattern: "docs/results/*.png"
