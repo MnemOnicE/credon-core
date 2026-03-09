@@ -1,6 +1,6 @@
 [lint]
 # Enable McCabe complexity checker (C901) alongside standard errors and formatting
-select = ["E", "F", "C901"]
+select = ["E", "F", "C901", "I", "B", "UP"]
 
 [lint.mccabe]
 # Flag errors if the complexity of a function exceeds 10
