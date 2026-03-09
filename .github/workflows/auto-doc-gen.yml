@@ -28,7 +28,7 @@ jobs:
       - name: Generate Python API Docs
         run: pdoc simulations/ -o docs/api/ --docformat google
       - name: Commit Generated Docs
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: auto-generate API documentation"
           file_pattern: "docs/api/**"

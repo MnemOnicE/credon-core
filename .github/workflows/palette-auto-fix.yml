@@ -38,7 +38,7 @@ jobs:
         run: ruff format simulations/
 
       - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "style(palette): auto-format and fix linting issues"
           file_pattern: "simulations/**/*.py"
