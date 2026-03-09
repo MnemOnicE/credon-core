@@ -1,0 +1,44 @@
+name: Palette Auto-Fix & Format
+
+on:
+  pull_request:
+    paths:
+      - 'simulations/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format-and-fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff Fix
+        run: ruff check --fix simulations/
+
+      - name: Run Ruff Format
+        run: ruff format simulations/
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style(palette): auto-format and fix linting issues"
+          file_pattern: "simulations/**/*.py"
