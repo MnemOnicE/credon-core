@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "pip"
-    directory: "/"
+    directory: "/simulations"
     schedule:
       interval: "weekly"
     assignees:

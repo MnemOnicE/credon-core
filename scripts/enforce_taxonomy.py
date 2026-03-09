@@ -33,8 +33,22 @@ def analyze_file(file_path):
 
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             # Check if function has a return statement
-            has_return = any(isinstance(child, ast.Return) for child in ast.walk(node))
-            err = check_docstring(node, file_path, requires_directional=has_return)
+            class ReturnVisitor(ast.NodeVisitor):
+                def __init__(self):
+                    self.has_return = False
+                def visit_Return(self, n):
+                    if n.value is not None:
+                        self.has_return = True
+                def visit_FunctionDef(self, n):
+                    pass
+                def visit_AsyncFunctionDef(self, n):
+                    pass
+
+            visitor = ReturnVisitor()
+            for child in node.body:
+                visitor.visit(child)
+
+            err = check_docstring(node, file_path, requires_directional=visitor.has_return)
             if err: errors.append(err)
 
     return errors
