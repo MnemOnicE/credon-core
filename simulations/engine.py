@@ -5,7 +5,16 @@ from agents import Agent
 
 
 class Proposal:
+    """
+    [EXPLANATORY: Proposal]
+    [IDENTIFIER: Proposal]
+    """
+
     def __init__(self, prop_id, proposer_id, target_rho, creation_epoch, is_core=True):
+        """
+        [EXPLANATORY: __init__]
+        [IDENTIFIER: __init__]
+        """
         self.id = prop_id
         self.proposer_id = proposer_id
         self.target_rho = target_rho
@@ -21,6 +30,10 @@ class Proposal:
         self.y_t_no = 0.0
 
     def cast_vote(self, agent_id, amount, vote, current_epoch):
+        """
+        [EXPLANATORY: cast_vote]
+        [IDENTIFIER: cast_vote]
+        """
         if agent_id in self.votes:
             if self.votes[agent_id]["vote"] != vote:
                 self.votes[agent_id]["epoch_staked"] = current_epoch
@@ -35,6 +48,11 @@ class Proposal:
             }
 
     def update_conviction(self, alpha, t_max, current_epoch):
+        """
+        [EXPLANATORY: update_conviction]
+        [IDENTIFIER: update_conviction]
+        [DIRECTIONAL: val]
+        """
         v_t_yes = 0.0
         v_t_no = 0.0
 
@@ -64,7 +82,16 @@ class Proposal:
 
 
 class Engine:
+    """
+    [EXPLANATORY: Engine]
+    [IDENTIFIER: Engine]
+    """
+
     def __init__(self, num_honest=20, num_malicious=5):
+        """
+        [EXPLANATORY: __init__]
+        [IDENTIFIER: __init__]
+        """
         if num_honest + num_malicious <= 0:
             raise ValueError("Simulation must have at least one agent.")
         # ---------------- Game Theory Parameters ----------------
@@ -138,7 +165,11 @@ class Engine:
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
-        """Calculates EigenTrust-style E(u) for all agents."""
+        """Calculates EigenTrust-style E(u) for all agents.
+        [EXPLANATORY: calculate_transitive_trust]
+        [IDENTIFIER: calculate_transitive_trust]
+        [DIRECTIONAL: val]
+        """
         E = {agent_id: 1.0 for agent_id in self.agents}  # Initial flat trust
         iterations = 5  # Small number of power iterations to converge local graph
 
@@ -161,7 +192,11 @@ class Engine:
         return E
 
     def calculate_social_connectivity(self):
-        """Calculates PageRank-style P(u) for all agents."""
+        """Calculates PageRank-style P(u) for all agents.
+        [EXPLANATORY: calculate_social_connectivity]
+        [IDENTIFIER: calculate_social_connectivity]
+        [DIRECTIONAL: val]
+        """
         P = {agent_id: 1.0 / len(self.agents) for agent_id in self.agents}
         d = 0.85  # Damping factor
         iterations = 10
@@ -183,7 +218,11 @@ class Engine:
         return {k: v * len(self.agents) for k, v in P.items()}
 
     def update_time_weighting(self):
-        """Calculates W(u, t) using discrete EMA of verified recent activity."""
+        """Calculates W(u, t) using discrete EMA of verified recent activity.
+        [EXPLANATORY: update_time_weighting]
+        [IDENTIFIER: update_time_weighting]
+        [DIRECTIONAL: val]
+        """
         for agent_id in self.agents:
             activity = self.recent_activity[agent_id]
             # EMA = (Value_today * decay) + (EMA_yesterday * (1 - decay))
@@ -194,7 +233,11 @@ class Engine:
         return self.W
 
     def calculate_trust_scores(self):
-        r"""T(u, t) = \alpha E(u) + \beta P(u) + \gamma W(u, t)"""
+        r"""T(u, t) = \alpha E(u) + \beta P(u) + \gamma W(u, t)
+        [EXPLANATORY: calculate_trust_scores]
+        [IDENTIFIER: calculate_trust_scores]
+        [DIRECTIONAL: val]
+        """
         E = self.calculate_transitive_trust()
         P = self.calculate_social_connectivity()
         W = self.update_time_weighting()
@@ -206,6 +249,10 @@ class Engine:
 
     # ---------------- Simulation Step ----------------
     def run_epoch(self):  # noqa: C901
+        """
+        [EXPLANATORY: run_epoch]
+        [IDENTIFIER: run_epoch]
+        """
         self.epoch += 1
         epoch_repaid_principal = 0
 
@@ -537,6 +584,11 @@ class Engine:
         )
 
     def get_results(self):
+        """
+        [EXPLANATORY: get_results]
+        [IDENTIFIER: get_results]
+        [DIRECTIONAL: val]
+        """
         return self.history
 
 
