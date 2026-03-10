@@ -13,11 +13,8 @@ def setup_engine():
     [IDENTIFIER: setup_engine]
     [DIRECTIONAL: val]
     """
-    NUM_HONEST_AGENTS = 50
-    NUM_MALICIOUS_AGENTS = 10
-    NUM_EPOCHS = 20
-    engine = Engine(num_honest=NUM_HONEST_AGENTS, num_malicious=NUM_MALICIOUS_AGENTS)
-    for _ in range(NUM_EPOCHS):
+    engine = Engine(num_honest=50, num_malicious=10)
+    for _ in range(20):
         engine.run_epoch()
     return engine
 
@@ -41,11 +38,10 @@ def run_benchmark():
     # Run 1000 times for a good measurement
     NUMBER_OF_EXECUTIONS = 1000
     execution_time = timeit.timeit(benchmark_func, number=NUMBER_OF_EXECUTIONS)
-    execution_time = timeit.timeit(benchmark_func, number=number_of_executions)
 
-    avg_time = (execution_time / number_of_executions) * 1000  # Convert to ms
+    avg_time = (execution_time / NUMBER_OF_EXECUTIONS) * 1000  # Convert to ms
 
-    print(f"Total time for {number_of_executions} executions: {execution_time:.4f} seconds")
+    print(f"Total time for {NUMBER_OF_EXECUTIONS} executions: {execution_time:.4f} seconds")
     print(f"Average time per execution: {avg_time:.4f} ms")
 
 
