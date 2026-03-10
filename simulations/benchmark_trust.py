@@ -13,8 +13,11 @@ def setup_engine():
     [IDENTIFIER: setup_engine]
     [DIRECTIONAL: val]
     """
-    engine = Engine(num_honest=50, num_malicious=10)
-    for _ in range(20):
+    NUM_HONEST_AGENTS = 50
+    NUM_MALICIOUS_AGENTS = 10
+    NUM_EPOCHS = 20
+    engine = Engine(num_honest=NUM_HONEST_AGENTS, num_malicious=NUM_MALICIOUS_AGENTS)
+    for _ in range(NUM_EPOCHS):
         engine.run_epoch()
     return engine
 
