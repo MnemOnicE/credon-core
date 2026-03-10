@@ -39,7 +39,8 @@ def run_benchmark():
 
     print("Running benchmark on calculate_transitive_trust...")
     # Run 1000 times for a good measurement
-    number_of_executions = 1000
+    NUMBER_OF_EXECUTIONS = 1000
+    execution_time = timeit.timeit(benchmark_func, number=NUMBER_OF_EXECUTIONS)
     execution_time = timeit.timeit(benchmark_func, number=number_of_executions)
 
     avg_time = (execution_time / number_of_executions) * 1000  # Convert to ms
