@@ -2,9 +2,10 @@ import timeit
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 
 from engine import Engine
+
 
 def setup_benchmark_engine():
     """
@@ -17,6 +18,7 @@ def setup_benchmark_engine():
     # Therefore, ALL 1000 agents are sinks (out_degree == 0).
     engine = Engine(num_honest=1000, num_malicious=0)
     return engine
+
 
 def run_benchmark():
     """
@@ -33,6 +35,11 @@ def run_benchmark():
     print(f"Running calculate_social_connectivity {iterations} times...")
 
     def wrapper():
+        """
+        [EXPLANATORY: wrapper encapsulates the calculate_social_connectivity method call for timing.]
+        [IDENTIFIER: benchmark_wrapper]
+        [DIRECTIONAL: val]
+        """
         engine.calculate_social_connectivity()
 
     execution_time = timeit.timeit(wrapper, number=iterations)
@@ -43,6 +50,7 @@ def run_benchmark():
     print(f"Total time for {iterations} iterations: {execution_time:.4f} seconds")
     print(f"Average time per iteration: {avg_time:.6f} seconds")
     print("-" * 40)
+
 
 if __name__ == "__main__":
     run_benchmark()
