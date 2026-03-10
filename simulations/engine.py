@@ -168,15 +168,23 @@ class Engine:
         E = {agent_id: 1.0 for agent_id in self.agents}  # Initial flat trust
         iterations = 5  # Small number of power iterations to converge local graph
 
+        # Pre-compute total interactions and normalized weights to avoid redundant calculations
+        agent_normalized_weights = {}
+        for u in self.agents.values():
+            total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
+            normalized_interactions = {}
+            if total_interactions > 0:
+                for v_id, weight in u.interactions.items():
+                    normalized_interactions[v_id] = math.sqrt(weight) / total_interactions
+            agent_normalized_weights[u.id] = normalized_interactions
+
         for _ in range(iterations):
             new_E = {agent_id: 0.0 for agent_id in self.agents}
-            for u in self.agents.values():
-                total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
-                if total_interactions > 0:
-                    for v_id, weight in u.interactions.items():
+            for u_id, normalized_interactions in agent_normalized_weights.items():
+                if normalized_interactions:
+                    for v_id, normalized_weight in normalized_interactions.items():
                         # u vouches for v_id
-                        normalized_weight = math.sqrt(weight) / total_interactions
-                        new_E[v_id] += E[u.id] * normalized_weight
+                        new_E[v_id] += E[u_id] * normalized_weight
 
             # Normalize to prevent explosion
             total_E = sum(new_E.values())
