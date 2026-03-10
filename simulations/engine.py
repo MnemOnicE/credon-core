@@ -102,7 +102,8 @@ class Engine:
         # ---------------- Monetary Policy Parameters ----------------
         self.R_res = 0.0  # Rewards Reservoir
         self.circulating_supply = 0.0
-        self.rho = 0.05  # Reward Release Rate (5%)
+        self.rho = 0.05
+        self.M_EPOCH_CIRCULATING_SUPPLY_CAP = 0.01  # Reward Release Rate (5%)
 
         # ---------------- Governance Parameters ----------------
         self.proposals = []
@@ -346,7 +347,7 @@ class Engine:
         # Calculate Minted amount
         # [EXPLANATORY: Throttles M_epoch during Sybil swarms so it never exceeds 1% of the circulating supply.]
         # [IDENTIFIER: engine_calc_m_epoch]
-        M_epoch = min(self.rho * self.R_res, self.M_EPOCH_CIRCULATING_SUPPLY_CAP * self.circulating_supply)
+        M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
 
         # Calculate inflation rate
         inflation_rate = (

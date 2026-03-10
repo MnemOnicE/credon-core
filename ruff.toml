@@ -1,6 +1,9 @@
+line-length = 120
+
 [lint]
 # Enable McCabe complexity checker (C901) alongside standard errors and formatting
 select = ["E", "F", "C901"]
+ignore = ["E501"]
 
 [lint.mccabe]
 # Flag errors if the complexity of a function exceeds 10
