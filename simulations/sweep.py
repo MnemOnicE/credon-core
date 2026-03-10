@@ -49,12 +49,8 @@ def sweep_leverage():
     final_epoch_data = combined_df[combined_df["epoch"] == epochs]
 
     plt.figure(figsize=(10, 6))
-    sns.lineplot(
-        data=final_epoch_data, x="L", y="avg_h_roi", label="Honest ROI", marker="o"
-    )
-    sns.lineplot(
-        data=final_epoch_data, x="L", y="avg_m_roi", label="Attacker ROI", marker="s"
-    )
+    sns.lineplot(data=final_epoch_data, x="L", y="avg_h_roi", label="Honest ROI", marker="o")
+    sns.lineplot(data=final_epoch_data, x="L", y="avg_m_roi", label="Attacker ROI", marker="s")
 
     plt.title("Average ROI vs Loan Size (B=500)")
     plt.xlabel("Loan Amount (L)")
@@ -72,9 +68,7 @@ def sweep_leverage():
     for i, l_val in enumerate([100, 400, 800]):
         df = divergence_data[l_val]
         ax = axes[i]
-        sns.lineplot(
-            data=df, x="epoch", y="avg_h_trust", label="Honest Trust", ax=ax, marker="o"
-        )
+        sns.lineplot(data=df, x="epoch", y="avg_h_trust", label="Honest Trust", ax=ax, marker="o")
         sns.lineplot(
             data=df,
             x="epoch",
