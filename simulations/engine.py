@@ -128,17 +128,13 @@ class Engine:
         # Initialize agents
         for i in range(num_honest):
             agent_id = f"H_{i}"
-            self.agents[agent_id] = Agent(
-                agent_id, is_malicious=False, b=self.B, l_amount=self.L, r=self.R
-            )
+            self.agents[agent_id] = Agent(agent_id, is_malicious=False, b=self.B, l_amount=self.L, r=self.R)
             self.circulating_supply += self.agents[agent_id].balance
 
         for i in range(num_malicious):
             agent_id = f"M_{i}"
             # Malicious attacker orchestrates Sybils
-            self.agents[agent_id] = Agent(
-                agent_id, is_malicious=True, b=self.B, l_amount=self.L, r=self.R
-            )
+            self.agents[agent_id] = Agent(agent_id, is_malicious=True, b=self.B, l_amount=self.L, r=self.R)
             self.circulating_supply += self.agents[agent_id].balance
 
         # Track Time-Weighted Conviction W for all agents using EMA
@@ -147,9 +143,7 @@ class Engine:
         self.recent_activity = {agent_id: 0 for agent_id in self.agents}
 
         # Track initial balances to compute ROI later
-        self.initial_balances = {
-            a_id: self.agents[a_id].balance for a_id in self.agents
-        }
+        self.initial_balances = {a_id: self.agents[a_id].balance for a_id in self.agents}
         self.history = []
 
         # Global Loan Registry
@@ -174,15 +168,23 @@ class Engine:
         E = {agent_id: 1.0 for agent_id in self.agents}  # Initial flat trust
         iterations = 5  # Small number of power iterations to converge local graph
 
+        # Pre-compute total interactions and normalized weights to avoid redundant calculations
+        agent_normalized_weights = {}
+        for u in self.agents.values():
+            total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
+            normalized_interactions = {}
+            if total_interactions > 0:
+                for v_id, weight in u.interactions.items():
+                    normalized_interactions[v_id] = math.sqrt(weight) / total_interactions
+            agent_normalized_weights[u.id] = normalized_interactions
+
         for _ in range(iterations):
             new_E = {agent_id: 0.0 for agent_id in self.agents}
-            for u in self.agents.values():
-                total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
-                if total_interactions > 0:
-                    for v_id, weight in u.interactions.items():
+            for u_id, normalized_interactions in agent_normalized_weights.items():
+                if normalized_interactions:
+                    for v_id, normalized_weight in normalized_interactions.items():
                         # u vouches for v_id
-                        normalized_weight = math.sqrt(weight) / total_interactions
-                        new_E[v_id] += E[u.id] * normalized_weight
+                        new_E[v_id] += E[u_id] * normalized_weight
 
             # Normalize to prevent explosion
             total_E = sum(new_E.values())
@@ -227,9 +229,7 @@ class Engine:
         for agent_id in self.agents:
             activity = self.recent_activity[agent_id]
             # EMA = (Value_today * decay) + (EMA_yesterday * (1 - decay))
-            self.W[agent_id] = (activity * self.ema_decay) + (
-                self.W[agent_id] * (1 - self.ema_decay)
-            )
+            self.W[agent_id] = (activity * self.ema_decay) + (self.W[agent_id] * (1 - self.ema_decay))
             self.recent_activity[agent_id] = 0  # Reset for next epoch
         return self.W
 
@@ -308,9 +308,7 @@ class Engine:
             # Sybil graph: attackers only interact with themselves (link farms)
             for other_m in malicious_ids:
                 if other_m != m_id:
-                    attacker.interact_with(
-                        other_m, self.L * 5
-                    )  # High internal interaction
+                    attacker.interact_with(other_m, self.L * 5)  # High internal interaction
 
             # Attacker controls Sponsor and Candidate (which is another Sybil or themselves)
             if attacker.balance >= (self.B * 2):  # Needs 2B
@@ -350,9 +348,7 @@ class Engine:
         M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
 
         # Calculate inflation rate
-        inflation_rate = (
-            (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
-        )
+        inflation_rate = (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
 
         # 3.5 Governance: Agents Propose and Vote
 
@@ -367,24 +363,16 @@ class Engine:
             if inflation_rate > 0.02:
                 target_rho = max(0.01, self.rho - 0.01)
             # Lowering the threshold so they propose for simulation purposes
-            elif inflation_rate < 0.02 and self.R_res > (
-                0.001 * self.circulating_supply
-            ):
+            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
                 target_rho = min(0.50, self.rho + 0.01)
 
             # Check if there is an active proposal matching the target
-            honest_proposal = next(
-                (p for p in active_proposals if p.target_rho == target_rho), None
-            )
+            honest_proposal = next((p for p in active_proposals if p.target_rho == target_rho), None)
 
             if target_rho is not None and honest_proposal is None:
                 # Find an honest agent with $CRED to propose
                 proposer = next(
-                    (
-                        self.agents[a_id]
-                        for a_id in honest_ids
-                        if self.agents[a_id].cred_balance > 0
-                    ),
+                    (self.agents[a_id] for a_id in honest_ids if self.agents[a_id].cred_balance > 0),
                     None,
                 )
                 if proposer:
@@ -405,10 +393,7 @@ class Engine:
                 agent = self.agents[a_id]
                 if agent.cred_balance > 0:
                     for p in active_proposals:
-                        if (
-                            p.target_rho <= self.rho + 0.01
-                            and p.target_rho >= self.rho - 0.01
-                        ):
+                        if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
                             # Vote yes on reasonable proposals
                             p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
                         else:
@@ -418,18 +403,12 @@ class Engine:
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
         malicious_target_rho = 0.50
-        malicious_proposal = next(
-            (p for p in active_proposals if p.target_rho == malicious_target_rho), None
-        )
+        malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
 
         if malicious_proposal is None and malicious_ids:
             # Malicious agent tries to propose if they have $CRED (unlikely if they default)
             m_proposer = next(
-                (
-                    self.agents[m_id]
-                    for m_id in malicious_ids
-                    if self.agents[m_id].cred_balance > 0
-                ),
+                (self.agents[m_id] for m_id in malicious_ids if self.agents[m_id].cred_balance > 0),
                 None,
             )
             if m_proposer:
@@ -459,9 +438,7 @@ class Engine:
         for p in active_proposals:
             if p.is_core:
                 # Update conviction y_t
-                _, _, _ = p.update_conviction(
-                    self.alpha_conviction, self.t_max, self.epoch
-                )
+                _, _, _ = p.update_conviction(self.alpha_conviction, self.t_max, self.epoch)
 
                 # Check if conviction threshold is met
                 # Threshold: 20% of maximum theoretical network conviction
@@ -472,9 +449,7 @@ class Engine:
                 # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
                 # For this simulation, max steady state conviction = total_cred / (1 - alpha_conviction).
                 steady_state_max = (
-                    max_conviction / (1 - self.alpha_conviction)
-                    if self.alpha_conviction < 1
-                    else max_conviction
+                    max_conviction / (1 - self.alpha_conviction) if self.alpha_conviction < 1 else max_conviction
                 )
                 conviction_threshold = 0.20 * steady_state_max
 
@@ -484,20 +459,14 @@ class Engine:
                 if p.y_t_yes > conviction_threshold and p.y_t_yes > p.y_t_no:
                     self.rho = p.target_rho
                     p.status = "executed"
-                    print(
-                        f"-> Governance: Proposal {p.id} executed! New rho: {self.rho:.4f}"
-                    )
+                    print(f"-> Governance: Proposal {p.id} executed! New rho: {self.rho:.4f}")
                 elif p.y_t_no > conviction_threshold and p.y_t_no > p.y_t_yes:
                     p.status = "rejected"
-                    print(
-                        f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction."
-                    )
+                    print(f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction.")
             else:
                 # Minor proposal - Discrete voting with dynamic quorums
                 # Get actual time-weighted voting power V_t, and total raw staked tokens.
-                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(
-                    0, self.t_max, self.epoch
-                )
+                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
 
                 # Check Quorum (total actual tokens staked regardless of time weight)
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
@@ -527,16 +496,10 @@ class Engine:
         ev_attacker = self.L - (2 * self.B)
 
         # Calculate actual average ROI
-        h_roi_total = sum(
-            (self.agents[a_id].balance - self.initial_balances[a_id])
-            for a_id in honest_ids
-        )
+        h_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in honest_ids)
         avg_h_roi = h_roi_total / len(honest_ids) if honest_ids else 0
 
-        m_roi_total = sum(
-            (self.agents[a_id].balance - self.initial_balances[a_id])
-            for a_id in malicious_ids
-        )
+        m_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in malicious_ids)
         avg_m_roi = m_roi_total / len(malicious_ids) if malicious_ids else 0
 
         print(f"\n=== EPOCH {self.epoch} SUMMARY ===")
@@ -544,27 +507,17 @@ class Engine:
         print(f"Rewards Reservoir R_res (Locked):  {self.R_res:.2f} CRE")
         print(f"Circulating Supply:              {self.circulating_supply:.2f} CRE")
         print(f"Game Theory EV(Honest):          {ev_honest:.2f} CRE per interaction")
-        print(
-            f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)"
-        )
+        print(f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)")
         print(f"Actual Avg Honest ROI so far:    {avg_h_roi:.2f} CRE")
         print(f"Actual Avg Attacker ROI so far:  {avg_m_roi:.2f} CRE")
         print(f"Governance - Total $CRED:        {total_cred}")
         print(f"Governance - Active Proposals:   {len(active_proposals)}")
         for p in active_proposals:
-            print(
-                f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}"
-            )
+            print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
 
         # Print Trust Scores to show Sybil isolation
-        avg_h_trust = (
-            sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
-        )
-        avg_m_trust = (
-            sum(T_scores[a] for a in malicious_ids) / len(malicious_ids)
-            if malicious_ids
-            else 0
-        )
+        avg_h_trust = sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
+        avg_m_trust = sum(T_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
         print(f"Avg Trust Score (Honest):        {avg_h_trust:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_trust:.4f}")
         # Append telemetry data to history

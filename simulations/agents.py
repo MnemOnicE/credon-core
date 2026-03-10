@@ -12,9 +12,7 @@ class Agent:
         self.id = agent_id
         self.is_malicious = is_malicious
         self.B = b  # Bond amount
-        self.L = (
-            l_amount  # Loan principal amount (typically under-collateralized vs 2B)
-        )
+        self.L = l_amount  # Loan principal amount (typically under-collateralized vs 2B)
         self.R = r  # Integrity reward
         self.balance = 50000 if is_malicious else 2500  # Starting capital
         self.cred_balance = 0  # Soulbound governance token

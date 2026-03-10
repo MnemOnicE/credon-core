@@ -34,9 +34,7 @@ class TestProposal:
         [IDENTIFIER: proposal]
         [DIRECTIONAL: val]
         """
-        return Proposal(
-            prop_id=1, proposer_id="H_0", target_rho=0.1, creation_epoch=1, is_core=True
-        )
+        return Proposal(prop_id=1, proposer_id="H_0", target_rho=0.1, creation_epoch=1, is_core=True)
 
     def test_cast_vote_new(self, proposal):
         """
@@ -46,9 +44,7 @@ class TestProposal:
         # Test voting for the first time
         proposal.cast_vote(agent_id="H_1", amount=100.0, vote=True, current_epoch=2)
 
-        assert proposal.votes == {
-            "H_1": {"amount": 100.0, "epoch_staked": 2, "vote": True}
-        }
+        assert proposal.votes == {"H_1": {"amount": 100.0, "epoch_staked": 2, "vote": True}}
 
     def test_cast_vote_change_direction(self, proposal):
         """
@@ -61,9 +57,7 @@ class TestProposal:
         # Test changing the vote direction later
         proposal.cast_vote(agent_id="H_1", amount=150.0, vote=False, current_epoch=4)
 
-        assert proposal.votes == {
-            "H_1": {"amount": 150.0, "epoch_staked": 4, "vote": False}
-        }
+        assert proposal.votes == {"H_1": {"amount": 150.0, "epoch_staked": 4, "vote": False}}
 
     def test_cast_vote_change_amount_only(self, proposal):
         """
@@ -77,9 +71,7 @@ class TestProposal:
         proposal.cast_vote(agent_id="H_1", amount=200.0, vote=True, current_epoch=5)
 
         # epoch_staked should NOT update if the vote direction didn't change
-        assert proposal.votes == {
-            "H_1": {"amount": 200.0, "epoch_staked": 2, "vote": True}
-        }
+        assert proposal.votes == {"H_1": {"amount": 200.0, "epoch_staked": 2, "vote": True}}
 
     def test_cast_vote_multiple_agents(self, proposal):
         """
