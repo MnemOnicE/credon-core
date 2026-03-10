@@ -346,7 +346,7 @@ class Engine:
         # Calculate Minted amount
         # [EXPLANATORY: Throttles M_epoch during Sybil swarms so it never exceeds 1% of the circulating supply.]
         # [IDENTIFIER: engine_calc_m_epoch]
-        M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
+        M_epoch = min(self.rho * self.R_res, self.M_EPOCH_CIRCULATING_SUPPLY_CAP * self.circulating_supply)
 
         # Calculate inflation rate
         inflation_rate = (
