@@ -205,6 +205,7 @@ class Engine:
         iterations = 10
 
         for _ in range(iterations):
+            sink_contribution = 0.0
             new_P = {agent_id: (1.0 - d) / len(self.agents) for agent_id in self.agents}
             for u in self.agents.values():
                 out_degree = sum(u.interactions.values())
@@ -212,9 +213,10 @@ class Engine:
                     for v_id, weight in u.interactions.items():
                         new_P[v_id] += d * (P[u.id] * (weight / out_degree))
                 else:
-                    # Handle sinks
-                    for v_id in self.agents:
-                        new_P[v_id] += d * (P[u.id] / len(self.agents))
+                    sink_contribution += d * (P[u.id] / len(self.agents))
+            if sink_contribution > 0:
+                for v_id in self.agents:
+                    new_P[v_id] += sink_contribution
             P = new_P
 
         # Scale to meaningful values roughly matching E
