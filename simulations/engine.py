@@ -3,8 +3,18 @@ import random
 
 from agents import Agent
 
+
 class Proposal:
+    """
+    [EXPLANATORY: Proposal]
+    [IDENTIFIER: Proposal]
+    """
+
     def __init__(self, prop_id, proposer_id, target_rho, creation_epoch, is_core=True):
+        """
+        [EXPLANATORY: __init__]
+        [IDENTIFIER: __init__]
+        """
         self.id = prop_id
         self.proposer_id = proposer_id
         self.target_rho = target_rho
@@ -20,6 +30,10 @@ class Proposal:
         self.y_t_no = 0.0
 
     def cast_vote(self, agent_id, amount, vote, current_epoch):
+        """
+        [EXPLANATORY: cast_vote]
+        [IDENTIFIER: cast_vote]
+        """
         if agent_id in self.votes:
             if self.votes[agent_id]["vote"] != vote:
                 self.votes[agent_id]["epoch_staked"] = current_epoch
@@ -30,10 +44,15 @@ class Proposal:
             self.votes[agent_id] = {
                 "amount": amount,
                 "epoch_staked": current_epoch,
-                "vote": vote
+                "vote": vote,
             }
 
     def update_conviction(self, alpha, t_max, current_epoch):
+        """
+        [EXPLANATORY: update_conviction]
+        [IDENTIFIER: update_conviction]
+        [DIRECTIONAL: val]
+        """
         v_t_yes = 0.0
         v_t_no = 0.0
 
@@ -61,19 +80,30 @@ class Proposal:
 
         return v_t_yes, v_t_no, total_staked_in_vote
 
+
 class Engine:
+    """
+    [EXPLANATORY: Engine]
+    [IDENTIFIER: Engine]
+    """
+
     def __init__(self, num_honest=20, num_malicious=5):
+        """
+        [EXPLANATORY: __init__]
+        [IDENTIFIER: __init__]
+        """
         if num_honest + num_malicious <= 0:
             raise ValueError("Simulation must have at least one agent.")
         # ---------------- Game Theory Parameters ----------------
         self.B = 500  # Bond size (B_c and B_s)
         self.L = 400  # Loan principal (must be < 2B)
-        self.R = 75   # Integrity reward
+        self.R = 75  # Integrity reward
 
         # ---------------- Monetary Policy Parameters ----------------
-        self.R_res = 0.0          # Rewards Reservoir
+        self.R_res = 0.0  # Rewards Reservoir
         self.circulating_supply = 0.0
-        self.rho = 0.05           # Reward Release Rate (5%)
+        self.rho = 0.05
+        self.M_EPOCH_CIRCULATING_SUPPLY_CAP = 0.01  # Reward Release Rate (5%)
 
         # ---------------- Governance Parameters ----------------
         self.proposals = []
@@ -87,9 +117,9 @@ class Engine:
 
         # ---------------- TrustLedger Math Weights ----------------
         self.alpha = 0.4  # Transitive Trust (E) weight
-        self.beta = 0.4   # Social Connectivity (P) weight
+        self.beta = 0.4  # Social Connectivity (P) weight
         self.gamma = 0.2  # Time-Weighting (W) weight
-        self.ema_decay = 0.1 # Decay for Time-Weighting (W) EMA
+        self.ema_decay = 0.1  # Decay for Time-Weighting (W) EMA
 
         # ---------------- Simulation State ----------------
         self.epoch = 0
@@ -98,13 +128,17 @@ class Engine:
         # Initialize agents
         for i in range(num_honest):
             agent_id = f"H_{i}"
-            self.agents[agent_id] = Agent(agent_id, is_malicious=False, b=self.B, l_amount=self.L, r=self.R)
+            self.agents[agent_id] = Agent(
+                agent_id, is_malicious=False, b=self.B, l_amount=self.L, r=self.R
+            )
             self.circulating_supply += self.agents[agent_id].balance
 
         for i in range(num_malicious):
             agent_id = f"M_{i}"
             # Malicious attacker orchestrates Sybils
-            self.agents[agent_id] = Agent(agent_id, is_malicious=True, b=self.B, l_amount=self.L, r=self.R)
+            self.agents[agent_id] = Agent(
+                agent_id, is_malicious=True, b=self.B, l_amount=self.L, r=self.R
+            )
             self.circulating_supply += self.agents[agent_id].balance
 
         # Track Time-Weighted Conviction W for all agents using EMA
@@ -113,7 +147,9 @@ class Engine:
         self.recent_activity = {agent_id: 0 for agent_id in self.agents}
 
         # Track initial balances to compute ROI later
-        self.initial_balances = {a_id: self.agents[a_id].balance for a_id in self.agents}
+        self.initial_balances = {
+            a_id: self.agents[a_id].balance for a_id in self.agents
+        }
         self.history = []
 
         # Global Loan Registry
@@ -130,9 +166,13 @@ class Engine:
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
-        """Calculates EigenTrust-style E(u) for all agents."""
-        E = {agent_id: 1.0 for agent_id in self.agents} # Initial flat trust
-        iterations = 5 # Small number of power iterations to converge local graph
+        """Calculates EigenTrust-style E(u) for all agents.
+        [EXPLANATORY: calculate_transitive_trust]
+        [IDENTIFIER: calculate_transitive_trust]
+        [DIRECTIONAL: val]
+        """
+        E = {agent_id: 1.0 for agent_id in self.agents}  # Initial flat trust
+        iterations = 5  # Small number of power iterations to converge local graph
 
         for _ in range(iterations):
             new_E = {agent_id: 0.0 for agent_id in self.agents}
@@ -153,9 +193,13 @@ class Engine:
         return E
 
     def calculate_social_connectivity(self):
-        """Calculates PageRank-style P(u) for all agents."""
+        """Calculates PageRank-style P(u) for all agents.
+        [EXPLANATORY: calculate_social_connectivity]
+        [IDENTIFIER: calculate_social_connectivity]
+        [DIRECTIONAL: val]
+        """
         P = {agent_id: 1.0 / len(self.agents) for agent_id in self.agents}
-        d = 0.85 # Damping factor
+        d = 0.85  # Damping factor
         iterations = 10
 
         for _ in range(iterations):
@@ -175,16 +219,26 @@ class Engine:
         return {k: v * len(self.agents) for k, v in P.items()}
 
     def update_time_weighting(self):
-        """Calculates W(u, t) using discrete EMA of verified recent activity."""
+        """Calculates W(u, t) using discrete EMA of verified recent activity.
+        [EXPLANATORY: update_time_weighting]
+        [IDENTIFIER: update_time_weighting]
+        [DIRECTIONAL: val]
+        """
         for agent_id in self.agents:
             activity = self.recent_activity[agent_id]
             # EMA = (Value_today * decay) + (EMA_yesterday * (1 - decay))
-            self.W[agent_id] = (activity * self.ema_decay) + (self.W[agent_id] * (1 - self.ema_decay))
-            self.recent_activity[agent_id] = 0 # Reset for next epoch
+            self.W[agent_id] = (activity * self.ema_decay) + (
+                self.W[agent_id] * (1 - self.ema_decay)
+            )
+            self.recent_activity[agent_id] = 0  # Reset for next epoch
         return self.W
 
     def calculate_trust_scores(self):
-        r"""T(u, t) = \alpha E(u) + \beta P(u) + \gamma W(u, t)"""
+        r"""T(u, t) = \alpha E(u) + \beta P(u) + \gamma W(u, t)
+        [EXPLANATORY: calculate_trust_scores]
+        [IDENTIFIER: calculate_trust_scores]
+        [DIRECTIONAL: val]
+        """
         E = self.calculate_transitive_trust()
         P = self.calculate_social_connectivity()
         W = self.update_time_weighting()
@@ -195,7 +249,11 @@ class Engine:
         return T
 
     # ---------------- Simulation Step ----------------
-    def run_epoch(self):
+    def run_epoch(self):  # noqa: C901
+        """
+        [EXPLANATORY: run_epoch]
+        [IDENTIFIER: run_epoch]
+        """
         self.epoch += 1
         epoch_repaid_principal = 0
 
@@ -241,7 +299,7 @@ class Engine:
                             candidate.process_graduation(self.B, self.R)
                             # Decrease circulating supply temporarily since R is drawn from M later
                             # Or we can just let circulating supply float and track it
-                            self.circulating_supply += (self.R * 2)
+                            self.circulating_supply += self.R * 2
 
         # 2. Malicious Agents Act (Sybil Swarm)
         malicious_ids = self.malicious_ids
@@ -250,11 +308,13 @@ class Engine:
             # Sybil graph: attackers only interact with themselves (link farms)
             for other_m in malicious_ids:
                 if other_m != m_id:
-                    attacker.interact_with(other_m, self.L * 5) # High internal interaction
+                    attacker.interact_with(
+                        other_m, self.L * 5
+                    )  # High internal interaction
 
             # Attacker controls Sponsor and Candidate (which is another Sybil or themselves)
-            if attacker.balance >= (self.B * 2): # Needs 2B
-                fake_candidate_id = m_id # Themselves for simplicity
+            if attacker.balance >= (self.B * 2):  # Needs 2B
+                fake_candidate_id = m_id  # Themselves for simplicity
 
                 # Post both bonds
                 b_c = attacker.post_candidate_bond()
@@ -270,8 +330,8 @@ class Engine:
                     # Because they defaulted, they keep L, but lose B_c and B_s
                     # Volume is NOT added to epoch_repaid_principal.
                     # Circulating supply decreases by the burned bonds
-                    self.circulating_supply -= (self.B * 2)
-                    self.circulating_supply += self.L # But they kept L
+                    self.circulating_supply -= self.B * 2
+                    self.circulating_supply += self.L  # But they kept L
                     # Actually L was already in circulating supply (from the protocol's TVL theoretically).
                     # If loan L comes from TVL, the net change in circulating supply of users is:
                     # -2B (burned) + L (kept).
@@ -285,10 +345,14 @@ class Engine:
         self.R_res += delta_r
 
         # Calculate Minted amount
-        M_epoch = self.rho * self.R_res
+        # [EXPLANATORY: Throttles M_epoch during Sybil swarms so it never exceeds 1% of the circulating supply.]
+        # [IDENTIFIER: engine_calc_m_epoch]
+        M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
 
         # Calculate inflation rate
-        inflation_rate = (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
+        inflation_rate = (
+            (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
+        )
 
         # 3.5 Governance: Agents Propose and Vote
 
@@ -303,17 +367,34 @@ class Engine:
             if inflation_rate > 0.02:
                 target_rho = max(0.01, self.rho - 0.01)
             # Lowering the threshold so they propose for simulation purposes
-            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
+            elif inflation_rate < 0.02 and self.R_res > (
+                0.001 * self.circulating_supply
+            ):
                 target_rho = min(0.50, self.rho + 0.01)
 
             # Check if there is an active proposal matching the target
-            honest_proposal = next((p for p in active_proposals if p.target_rho == target_rho), None)
+            honest_proposal = next(
+                (p for p in active_proposals if p.target_rho == target_rho), None
+            )
 
             if target_rho is not None and honest_proposal is None:
                 # Find an honest agent with $CRED to propose
-                proposer = next((self.agents[a_id] for a_id in honest_ids if self.agents[a_id].cred_balance > 0), None)
+                proposer = next(
+                    (
+                        self.agents[a_id]
+                        for a_id in honest_ids
+                        if self.agents[a_id].cred_balance > 0
+                    ),
+                    None,
+                )
                 if proposer:
-                    new_prop = Proposal(self.next_proposal_id, proposer.id, target_rho, self.epoch, is_core=True)
+                    new_prop = Proposal(
+                        self.next_proposal_id,
+                        proposer.id,
+                        target_rho,
+                        self.epoch,
+                        is_core=True,
+                    )
                     self.proposals.append(new_prop)
                     self.next_proposal_id += 1
                     active_proposals.append(new_prop)
@@ -324,7 +405,10 @@ class Engine:
                 agent = self.agents[a_id]
                 if agent.cred_balance > 0:
                     for p in active_proposals:
-                        if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
+                        if (
+                            p.target_rho <= self.rho + 0.01
+                            and p.target_rho >= self.rho - 0.01
+                        ):
                             # Vote yes on reasonable proposals
                             p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
                         else:
@@ -334,13 +418,28 @@ class Engine:
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
         malicious_target_rho = 0.50
-        malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
+        malicious_proposal = next(
+            (p for p in active_proposals if p.target_rho == malicious_target_rho), None
+        )
 
         if malicious_proposal is None and malicious_ids:
             # Malicious agent tries to propose if they have $CRED (unlikely if they default)
-            m_proposer = next((self.agents[m_id] for m_id in malicious_ids if self.agents[m_id].cred_balance > 0), None)
+            m_proposer = next(
+                (
+                    self.agents[m_id]
+                    for m_id in malicious_ids
+                    if self.agents[m_id].cred_balance > 0
+                ),
+                None,
+            )
             if m_proposer:
-                new_prop = Proposal(self.next_proposal_id, m_proposer.id, malicious_target_rho, self.epoch, is_core=True)
+                new_prop = Proposal(
+                    self.next_proposal_id,
+                    m_proposer.id,
+                    malicious_target_rho,
+                    self.epoch,
+                    is_core=True,
+                )
                 self.proposals.append(new_prop)
                 self.next_proposal_id += 1
                 active_proposals.append(new_prop)
@@ -360,7 +459,9 @@ class Engine:
         for p in active_proposals:
             if p.is_core:
                 # Update conviction y_t
-                _, _, _ = p.update_conviction(self.alpha_conviction, self.t_max, self.epoch)
+                _, _, _ = p.update_conviction(
+                    self.alpha_conviction, self.t_max, self.epoch
+                )
 
                 # Check if conviction threshold is met
                 # Threshold: 20% of maximum theoretical network conviction
@@ -370,7 +471,11 @@ class Engine:
                 # For continuous voting, we need to compare y_t to something stable or max possible.
                 # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
                 # For this simulation, max steady state conviction = total_cred / (1 - alpha_conviction).
-                steady_state_max = max_conviction / (1 - self.alpha_conviction) if self.alpha_conviction < 1 else max_conviction
+                steady_state_max = (
+                    max_conviction / (1 - self.alpha_conviction)
+                    if self.alpha_conviction < 1
+                    else max_conviction
+                )
                 conviction_threshold = 0.20 * steady_state_max
 
                 # Quorum check (just simple check if total votes > quorum)
@@ -379,14 +484,20 @@ class Engine:
                 if p.y_t_yes > conviction_threshold and p.y_t_yes > p.y_t_no:
                     self.rho = p.target_rho
                     p.status = "executed"
-                    print(f"-> Governance: Proposal {p.id} executed! New rho: {self.rho:.4f}")
+                    print(
+                        f"-> Governance: Proposal {p.id} executed! New rho: {self.rho:.4f}"
+                    )
                 elif p.y_t_no > conviction_threshold and p.y_t_no > p.y_t_yes:
                     p.status = "rejected"
-                    print(f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction.")
+                    print(
+                        f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction."
+                    )
             else:
                 # Minor proposal - Discrete voting with dynamic quorums
                 # Get actual time-weighted voting power V_t, and total raw staked tokens.
-                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
+                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(
+                    0, self.t_max, self.epoch
+                )
 
                 # Check Quorum (total actual tokens staked regardless of time weight)
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
@@ -416,10 +527,16 @@ class Engine:
         ev_attacker = self.L - (2 * self.B)
 
         # Calculate actual average ROI
-        h_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in honest_ids)
+        h_roi_total = sum(
+            (self.agents[a_id].balance - self.initial_balances[a_id])
+            for a_id in honest_ids
+        )
         avg_h_roi = h_roi_total / len(honest_ids) if honest_ids else 0
 
-        m_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in malicious_ids)
+        m_roi_total = sum(
+            (self.agents[a_id].balance - self.initial_balances[a_id])
+            for a_id in malicious_ids
+        )
         avg_m_roi = m_roi_total / len(malicious_ids) if malicious_ids else 0
 
         print(f"\n=== EPOCH {self.epoch} SUMMARY ===")
@@ -427,38 +544,54 @@ class Engine:
         print(f"Rewards Reservoir R_res (Locked):  {self.R_res:.2f} CRE")
         print(f"Circulating Supply:              {self.circulating_supply:.2f} CRE")
         print(f"Game Theory EV(Honest):          {ev_honest:.2f} CRE per interaction")
-        print(f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)")
+        print(
+            f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)"
+        )
         print(f"Actual Avg Honest ROI so far:    {avg_h_roi:.2f} CRE")
         print(f"Actual Avg Attacker ROI so far:  {avg_m_roi:.2f} CRE")
         print(f"Governance - Total $CRED:        {total_cred}")
         print(f"Governance - Active Proposals:   {len(active_proposals)}")
         for p in active_proposals:
-            print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
+            print(
+                f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}"
+            )
 
         # Print Trust Scores to show Sybil isolation
-        avg_h_trust = sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
-        avg_m_trust = sum(T_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
+        avg_h_trust = (
+            sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
+        )
+        avg_m_trust = (
+            sum(T_scores[a] for a in malicious_ids) / len(malicious_ids)
+            if malicious_ids
+            else 0
+        )
         print(f"Avg Trust Score (Honest):        {avg_h_trust:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_trust:.4f}")
         # Append telemetry data to history
-        self.history.append({
-            "epoch": self.epoch,
-            "verified_volume": epoch_repaid_principal,
-            "rewards_reservoir": self.R_res,
-            "circulating_supply": self.circulating_supply,
-            "ev_honest": ev_honest,
-            "ev_attacker": ev_attacker,
-            "avg_h_roi": avg_h_roi,
-            "avg_m_roi": avg_m_roi,
-            "avg_h_trust": avg_h_trust,
-            "avg_m_trust": avg_m_trust,
-            "total_cred": total_cred
-        })
-
-
+        self.history.append(
+            {
+                "epoch": self.epoch,
+                "verified_volume": epoch_repaid_principal,
+                "rewards_reservoir": self.R_res,
+                "circulating_supply": self.circulating_supply,
+                "ev_honest": ev_honest,
+                "ev_attacker": ev_attacker,
+                "avg_h_roi": avg_h_roi,
+                "avg_m_roi": avg_m_roi,
+                "avg_h_trust": avg_h_trust,
+                "avg_m_trust": avg_m_trust,
+                "total_cred": total_cred,
+            }
+        )
 
     def get_results(self):
+        """
+        [EXPLANATORY: get_results]
+        [IDENTIFIER: get_results]
+        [DIRECTIONAL: val]
+        """
         return self.history
+
 
 if __name__ == "__main__":
     engine = Engine(num_honest=20, num_malicious=5)
