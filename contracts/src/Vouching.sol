@@ -36,7 +36,9 @@ contract Vouching is Ownable {
     error CannotVouchSelf();
 
     constructor(address creToken_, address initialOwner, address initialTreasury) Ownable(initialOwner) {
-        if (creToken_ == address(0) || initialOwner == address(0) || initialTreasury == address(0)) revert InvalidAddress();
+        if (creToken_ == address(0) || initialOwner == address(0) || initialTreasury == address(0)) {
+            revert InvalidAddress();
+        }
         CRE_TOKEN = IERC20(creToken_);
         treasury = initialTreasury;
     }

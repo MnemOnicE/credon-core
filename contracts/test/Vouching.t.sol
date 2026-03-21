@@ -144,7 +144,7 @@ contract VouchingTest is Test {
         vm.prank(alice);
         vouching.placeBond(bob, amount);
 
-        (uint256 actualAmount, , bool isActive) = vouching.bonds(alice, bob);
+        (uint256 actualAmount,, bool isActive) = vouching.bonds(alice, bob);
         assertEq(actualAmount, amount);
         assertTrue(isActive);
     }
