@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Vouching} from "../src/Vouching.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 // A simple mock token for testing
 contract MockCRE is ERC20 {
@@ -18,12 +19,15 @@ contract VouchingTest is Test {
     Vouching public vouching;
     MockCRE public mockToken;
 
+    address public initialOwner = address(0x99);
+    address public treasury = address(0x88);
+
     address public alice = address(0x1);
     address public bob = address(0x2);
 
     function setUp() public {
         mockToken = new MockCRE();
-        vouching = new Vouching(address(mockToken));
+        vouching = new Vouching(address(mockToken), initialOwner, treasury);
 
         // Fund test users
         mockToken.mint(alice, 10000 ether);
@@ -81,11 +85,55 @@ contract VouchingTest is Test {
         vm.prank(alice);
         vouching.withdrawBond(bob);
 
-        (uint256 amount, , bool isActive) = vouching.bonds(alice, bob);
+        (uint256 amount, uint256 lockedUntil, bool isActive) = vouching.bonds(alice, bob);
 
         assertEq(amount, 0);
+        assertEq(lockedUntil, 0); // Check delete worked
         assertFalse(isActive);
         assertEq(mockToken.balanceOf(alice), initialAliceBalance); // fully refunded
+    }
+
+    /// @notice Test owner can slash a bond successfully
+    function test_SlashBond() public {
+        uint256 bondAmount = 100 ether;
+
+        vm.prank(alice);
+        vouching.placeBond(bob, bondAmount);
+
+        uint256 initialTreasuryBalance = mockToken.balanceOf(treasury);
+
+        vm.prank(initialOwner);
+        vouching.slashBond(alice, bob);
+
+        (uint256 amount, uint256 lockedUntil, bool isActive) = vouching.bonds(alice, bob);
+
+        assertEq(amount, 0);
+        assertEq(lockedUntil, 0);
+        assertFalse(isActive);
+
+        assertEq(mockToken.balanceOf(treasury), initialTreasuryBalance + bondAmount);
+    }
+
+    /// @notice Test non-owner cannot slash a bond
+    function test_RevertIf_NonOwnerSlashes() public {
+        uint256 bondAmount = 100 ether;
+
+        vm.prank(alice);
+        vouching.placeBond(bob, bondAmount);
+
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
+        vouching.slashBond(alice, bob);
+    }
+
+    /// @notice Test updating the treasury
+    function test_SetTreasury() public {
+        address newTreasury = address(0x77);
+
+        vm.prank(initialOwner);
+        vouching.setTreasury(newTreasury);
+
+        assertEq(vouching.treasury(), newTreasury);
     }
 
     /// @notice Fuzz testing the bond amount

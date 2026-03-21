@@ -3,14 +3,16 @@ pragma solidity 0.8.24;
 
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /// @title Vouching 2.0 Bonded Endorsement Scaffold
 /// @dev A basic implementation of the Vouching 2.0 mechanism where users can bond tokens to endorse others.
-contract Vouching {
+contract Vouching is Ownable {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable CRE_TOKEN;
     uint256 public constant PROBATION_PERIOD = 180 days;
+    address public treasury;
 
     struct Bond {
         uint256 amount;
@@ -23,16 +25,29 @@ contract Vouching {
 
     event BondPlaced(address indexed voucher, address indexed vouchee, uint256 amount, uint256 lockedUntil);
     event BondWithdrawn(address indexed voucher, address indexed vouchee, uint256 amount);
-    event BondSlashed(address indexed voucher, address indexed vouchee, uint256 amount);
+    event BondSlashed(address indexed voucher, address indexed vouchee, uint256 amount, address treasury);
+    event TreasuryUpdated(address oldTreasury, address newTreasury);
 
+    error InvalidAddress();
     error InvalidAmount();
     error BondAlreadyExists();
     error BondNotActive();
     error BondStillLocked();
     error CannotVouchSelf();
 
-    constructor(address creToken_) {
+    constructor(address creToken_, address initialOwner, address initialTreasury) Ownable(initialOwner) {
+        if (creToken_ == address(0) || initialOwner == address(0) || initialTreasury == address(0)) revert InvalidAddress();
         CRE_TOKEN = IERC20(creToken_);
+        treasury = initialTreasury;
+    }
+
+    /// @notice Updates the treasury address where slashed funds are sent
+    /// @param newTreasury The address of the new treasury
+    function setTreasury(address newTreasury) external onlyOwner {
+        if (newTreasury == address(0)) revert InvalidAddress();
+        address oldTreasury = treasury;
+        treasury = newTreasury;
+        emit TreasuryUpdated(oldTreasury, newTreasury);
     }
 
     /// @notice Places a bonded endorsement for a target address
@@ -66,8 +81,7 @@ contract Vouching {
 
         uint256 amount = currentBond.amount;
 
-        currentBond.isActive = false;
-        currentBond.amount = 0;
+        delete bonds[msg.sender][vouchee];
 
         CRE_TOKEN.safeTransfer(msg.sender, amount);
 
@@ -75,22 +89,20 @@ contract Vouching {
     }
 
     /// @notice Slashes a bond (e.g., if the vouchee acts maliciously).
-    /// @dev In a full implementation, this would be restricted to a governance or ZK verifier role.
+    /// @dev Restricted to the contract owner (governance).
     /// @param voucher The address that placed the bond
     /// @param vouchee The address that was endorsed
-    function slashBond(address voucher, address vouchee) external {
+    function slashBond(address voucher, address vouchee) external onlyOwner {
         Bond storage currentBond = bonds[voucher][vouchee];
         if (!currentBond.isActive) revert BondNotActive();
 
         uint256 amount = currentBond.amount;
+        address currentTreasury = treasury;
 
-        currentBond.isActive = false;
-        currentBond.amount = 0;
+        delete bonds[voucher][vouchee];
 
-        // For scaffold purposes, we just burn the slashed tokens (or send to a treasury)
-        // Here we'll just transfer to the zero address / burn it
-        CRE_TOKEN.safeTransfer(address(0xdEaD), amount);
+        CRE_TOKEN.safeTransfer(currentTreasury, amount);
 
-        emit BondSlashed(voucher, vouchee, amount);
+        emit BondSlashed(voucher, vouchee, amount, currentTreasury);
     }
 }
