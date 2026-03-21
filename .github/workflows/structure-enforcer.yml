@@ -13,6 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Run ls-lint
         uses: ls-lint/action@v2.3.1
