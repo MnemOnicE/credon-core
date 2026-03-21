@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup CML
-        uses: iterative/setup-cml@v2
+        uses: iterative/setup-cml@v3
 
       - name: Set up Python
         uses: actions/setup-python@v6
