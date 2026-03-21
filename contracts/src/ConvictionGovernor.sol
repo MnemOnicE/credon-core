@@ -95,6 +95,7 @@ contract ConvictionGovernor is AccessControl {
         CRED_TOKEN = IERC5192(_credToken);
         RESERVOIR = RewardsReservoir(_reservoir);
 
+        if (_decayRate >= WAD) revert("decayRate must be less than WAD");
         decayRate = _decayRate;
         maxRatio = _maxRatio;
         minThresholdStakePercentage = _minThreshold;
@@ -159,9 +160,17 @@ contract ConvictionGovernor is AccessControl {
      * @dev In production, a gas-efficient fixed-point math library like PRBMath should be used.
      */
     function _pow(uint256 alpha, uint256 timePassed) internal pure returns (uint256) {
+        if (timePassed == 0) {
+            return WAD;
+        }
         uint256 res = WAD;
-        for (uint256 i = 0; i < timePassed; i++) {
-            res = (res * alpha) / WAD;
+        uint256 base = alpha;
+        while (timePassed > 0) {
+            if (timePassed % 2 == 1) {
+                res = (res * base) / WAD;
+            }
+            base = (base * base) / WAD;
+            timePassed /= 2;
         }
         return res;
     }
@@ -239,14 +248,15 @@ contract ConvictionGovernor is AccessControl {
         // We ensure total user stake across all proposals doesn't exceed their balance.
         // For simplicity in this implementation, we just check they don't exceed their balance on this single proposal.
         // A true Aragon implementation allows splitting stake.
-        VoterState storage voter = voterStates[proposalId][msg.sender];
-        if (voter.stakedAmount + amount > userBalance) revert InsufficientCredBalance();
+        if (totalUserStake[msg.sender] + amount > userBalance) revert InsufficientCredBalance();
 
         // Lazy evaluate proposal
         _updateProposalConviction(proposalId);
 
+        VoterState storage voter = voterStates[proposalId][msg.sender];
         voter.stakedAmount += amount;
         proposal.totalStaked += amount;
+        totalUserStake[msg.sender] += amount;
 
         emit ConvictionAdded(proposalId, msg.sender, amount);
     }
