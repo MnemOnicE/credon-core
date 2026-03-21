@@ -13,7 +13,7 @@ contract DeployScript is Script {
         // Read deploy_config.json from project root
         string memory root = vm.projectRoot();
         // project root for contracts is /app/contracts. We wrote deploy_config.json to /app.
-        string memory path = string.concat(root, "/deploy_config.json");
+        string memory path = string.concat(root, "/../deploy_config.json");
         string memory json = vm.readFile(path);
 
         // Parse optimal parameters
@@ -29,7 +29,12 @@ contract DeployScript is Script {
         console2.log("Initial Epoch Emission Limit:", initialMaxTokensPerEpoch);
 
         // Setup deployer key
-        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(1));
+        uint256 deployerPrivateKey;
+        if (block.chainid == 31337) { // Anvil's default chain ID
+            deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(1));
+        } else {
+            deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        }
         address defaultAdmin = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);

@@ -105,6 +105,58 @@ contract ConvictionGovernorTest is Test {
 
         assertEq(governor.currentVbe(), newVbe);
     }
+    function test_UpdateVbe_ChallengeSuccess() public {
+        uint256 newVbe = 0.8e18;
+
+        vm.startPrank(zkProver);
+        governor.proposeVbeUpdate(newVbe);
+        vm.stopPrank();
+
+        // Grant challenger role using the defaultAdmin
+        vm.startPrank(admin);
+        governor.grantRole(governor.CHALLENGER_ROLE(), voter2);
+        vm.stopPrank();
+
+        vm.startPrank(voter2);
+        governor.challengeVbeUpdate();
+        vm.stopPrank();
+
+        // Warp past window, try to finalize
+        vm.warp(block.timestamp + governor.VBE_CHALLENGE_WINDOW() + 1);
+        vm.expectRevert("No pending update to finalize");
+        governor.finalizeVbeUpdate();
+    }
+    function test_UpdateVbe_ChallengeExpired() public {
+        uint256 newVbe = 0.8e18;
+
+        vm.startPrank(zkProver);
+        governor.proposeVbeUpdate(newVbe);
+        vm.stopPrank();
+
+        vm.startPrank(admin);
+        governor.grantRole(governor.CHALLENGER_ROLE(), voter2);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + governor.VBE_CHALLENGE_WINDOW() + 1);
+
+        vm.startPrank(voter2);
+        vm.expectRevert("Challenge window expired");
+        governor.challengeVbeUpdate();
+        vm.stopPrank();
+    }
+
+
+    function test_UpdateVbe_ProposeWhilePendingFails() public {
+        uint256 newVbe = 0.8e18;
+
+        vm.startPrank(zkProver);
+        governor.proposeVbeUpdate(newVbe);
+
+        vm.expectRevert("An update is already pending");
+        governor.proposeVbeUpdate(0.5e18);
+        vm.stopPrank();
+    }
+
 
     function test_UpdateVbe_RevertUnauthorized() public {
         uint256 newVbe = 0.4e18;

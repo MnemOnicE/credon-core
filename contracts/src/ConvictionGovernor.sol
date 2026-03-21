@@ -122,6 +122,7 @@ contract ConvictionGovernor is AccessControl {
      * @param newVbe The new Shannon Entropy value (scaled by WAD).
      */
     function proposeVbeUpdate(uint256 newVbe) external onlyRole(ZK_PROVER_ROLE) {
+        require(!pendingVbe.isPending, "An update is already pending");
         pendingVbe = PendingVbeUpdate({
             newVbe: newVbe,
             proposedAt: block.timestamp,
@@ -129,6 +130,8 @@ contract ConvictionGovernor is AccessControl {
         });
         emit VbeProposed(newVbe, block.timestamp);
     }
+
+
 
     /**
      * @notice Challenges a pending VBE update.
