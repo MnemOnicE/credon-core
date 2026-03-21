@@ -1,5 +1,5 @@
 import math
-import random
+import secrets
 
 from agents import Agent
 
@@ -158,6 +158,9 @@ class Engine:
             else:
                 self.honest_ids.append(a_id)
 
+        # Cryptographically secure random number generator
+        self.secure_random = secrets.SystemRandom()
+
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
         """Calculates EigenTrust-style E(u) for all agents.
@@ -280,14 +283,14 @@ class Engine:
             # Interact with a few other honest nodes randomly to build the social graph
             other_honest_ids = [hid for hid in honest_ids if hid != a_id]
             if other_honest_ids:
-                friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
+                friends = self.secure_random.sample(other_honest_ids, min(3, len(other_honest_ids)))
                 for friend in friends:
                     sponsor.interact_with(friend, self.L)
 
             # Try to sponsor a candidate
             if sponsor.balance >= self.B:
                 # Random honest candidate
-                candidate_id = random.choice(honest_ids)
+                candidate_id = self.secure_random.choice(honest_ids)
                 candidate = self.agents[candidate_id]
 
                 # Check candidate bond
