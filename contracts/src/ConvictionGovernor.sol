@@ -273,7 +273,7 @@ contract ConvictionGovernor is AccessControl {
         try IERC721Enumerable(address(CRED_TOKEN)).totalSupply() returns (uint256 _totalSupply) {
             totalSupply = _totalSupply;
         } catch {
-            totalSupply = 1000; // Fallback if not enumerable
+            revert("Failed to get totalSupply from CRED_TOKEN. Ensure it implements IERC721Enumerable.");
         }
 
         uint256 divisor = WAD - currentAlpha;
