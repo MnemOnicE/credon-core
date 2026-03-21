@@ -74,6 +74,9 @@ contract CredonBadge is ERC721, AccessControl, IERC5192 {
         return true;
     }
 
+    uint256 public _totalSupply;
+    function totalSupply() external view returns (uint256) { return _totalSupply; }
+
     /**
      * @notice Mints a new $CRED badge.
      * @dev Only callable by an account with the MINTER_ROLE. Emits the Locked event from EIP-5192.
@@ -81,6 +84,7 @@ contract CredonBadge is ERC721, AccessControl, IERC5192 {
      * @param tokenId The unique identifier for the badge.
      */
     function mint(address to, uint256 tokenId) external onlyRole(MINTER_ROLE) {
+        _totalSupply++;
         _mint(to, tokenId);
         emit Locked(tokenId);
     }

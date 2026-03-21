@@ -38,6 +38,9 @@ contract ConvictionGovernorTest is Test {
         // Setup Reservoir
         reservoir = new RewardsReservoir(admin, address(rewardToken), 1000 * WAD);
 
+        // Grant MINTER_ROLE on reward token to the reservoir so it can mint claims
+        rewardToken.grantRole(rewardToken.MINTER_ROLE(), address(reservoir));
+
         // Setup Governor
         governor =
             new ConvictionGovernor(admin, address(credToken), address(reservoir), DECAY_RATE, MAX_RATIO, MIN_THRESHOLD);
@@ -50,6 +53,7 @@ contract ConvictionGovernorTest is Test {
         vm.startPrank(minter);
         credToken.mint(voter1, 1);
         credToken.mint(voter2, 2);
+        credToken.mint(voter2, 3); // voter2 actually needs 2 badges
         vm.stopPrank();
     }
 
@@ -125,6 +129,76 @@ contract ConvictionGovernorTest is Test {
         // Voter1 only has 1 badge, trying to stake 2
         vm.expectRevert(ConvictionGovernor.InsufficientCredBalance.selector);
         governor.stakeToProposal(proposalId, 2);
+        vm.stopPrank();
+    }
+
+
+    function test_StakeMultipleProposals_RevertInsufficientBalance() public {
+        vm.startPrank(voter1);
+        uint256 proposal1 = governor.createProposal(50 * WAD, beneficiary);
+        uint256 proposal2 = governor.createProposal(50 * WAD, beneficiary);
+
+        // Voter1 has 1 badge, stakes it on proposal 1
+        governor.stakeToProposal(proposal1, 1);
+
+        // Trying to stake the same badge on proposal 2 should revert
+        vm.expectRevert(ConvictionGovernor.InsufficientCredBalance.selector);
+        governor.stakeToProposal(proposal2, 1);
+        vm.stopPrank();
+    }
+
+    function test_ConvictionAccumulation() public {
+        vm.startPrank(voter1);
+        uint256 proposalId = governor.createProposal(100 * WAD, beneficiary);
+
+        governor.stakeToProposal(proposalId, 1);
+
+        (,,,,, uint256 initialConviction, ,) = governor.proposals(proposalId);
+        assertEq(initialConviction, 0);
+
+        // Fast forward 10 blocks
+        vm.roll(block.number + 10);
+
+        // Someone else stakes to trigger lazy evaluation
+        vm.stopPrank();
+        vm.startPrank(voter2);
+        governor.stakeToProposal(proposalId, 1);
+
+        (,,,,, uint256 updatedConviction,,) = governor.proposals(proposalId);
+        assertTrue(updatedConviction > 0);
+        vm.stopPrank();
+    }
+
+    function test_ExecuteProposal_RevertInsufficientConviction() public {
+        vm.startPrank(voter1);
+        uint256 proposalId = governor.createProposal(100 * WAD, beneficiary);
+        governor.stakeToProposal(proposalId, 1);
+
+        vm.expectRevert(ConvictionGovernor.InsufficientConviction.selector);
+        governor.executeProposal(proposalId);
+        vm.stopPrank();
+    }
+
+    function test_ExecuteProposal_Success() public {
+        // Setup reservoir authorization for governor
+        vm.startPrank(admin);
+        reservoir.grantRole(reservoir.ZK_PROVER_ROLE(), address(governor));
+        vm.stopPrank();
+
+        vm.startPrank(voter2); // voter2 has 2 badges
+        uint256 proposalId = governor.createProposal(100 * WAD, beneficiary);
+        governor.stakeToProposal(proposalId, 2);
+
+        // Fast forward many blocks to build up conviction past threshold
+        vm.roll(block.number + 1000);
+
+        governor.executeProposal(proposalId);
+
+        (,,,,,,, bool executed) = governor.proposals(proposalId);
+        assertTrue(executed);
+
+        // Beneficiary should have received tokens from reservoir
+        assertEq(rewardToken.balanceOf(beneficiary), 100 * WAD);
         vm.stopPrank();
     }
 }
