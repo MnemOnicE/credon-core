@@ -174,11 +174,13 @@ class Engine:
         # Pre-compute total interactions and normalized weights to avoid redundant calculations
         agent_normalized_weights = {}
         for u in self.agents.values():
-            total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
+            # Pre-calculate square roots to avoid redundant computation in the normalization loop
+            sqrt_weights = {v_id: math.sqrt(w) for v_id, w in u.interactions.items()}
+            total_interactions = sum(sqrt_weights.values())
             normalized_interactions = {}
             if total_interactions > 0:
-                for v_id, weight in u.interactions.items():
-                    normalized_interactions[v_id] = math.sqrt(weight) / total_interactions
+                for v_id, w_sqrt in sqrt_weights.items():
+                    normalized_interactions[v_id] = w_sqrt / total_interactions
             agent_normalized_weights[u.id] = normalized_interactions
 
         for _ in range(iterations):
