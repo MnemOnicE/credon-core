@@ -18,6 +18,7 @@ interface IERC721Enumerable {
  */
 contract ConvictionGovernor is AccessControl {
     bytes32 public constant ZK_PROVER_ROLE = keccak256("ZK_PROVER_ROLE");
+    bytes32 public constant CHALLENGER_ROLE = keccak256("CHALLENGER_ROLE");
 
     // Contracts
     IERC5192 public immutable CRED_TOKEN;
@@ -103,15 +104,72 @@ contract ConvictionGovernor is AccessControl {
         // Initialize VBE to a safe default (1.0)
         currentVbe = WAD;
     }
+    // VBE Optimistic Oracle State
+    struct PendingVbeUpdate {
+        uint256 newVbe;
+        uint256 proposedAt;
+        bool isPending;
+    }
+    PendingVbeUpdate public pendingVbe;
+    uint256 public constant VBE_CHALLENGE_WINDOW = 24 hours;
+
+
+    event VbeProposed(uint256 newVbe, uint256 proposedAt);
+    event VbeChallenged(uint256 proposedVbe);
 
     /**
-     * @notice Updates the Voting-Bloc Entropy metric, fed by L2 ZK-Rollups.
+     * @notice Proposes a new Voting-Bloc Entropy metric, fed by L2 ZK-Rollups.
      * @param newVbe The new Shannon Entropy value (scaled by WAD).
      */
-    function updateVbe(uint256 newVbe) external onlyRole(ZK_PROVER_ROLE) {
-        currentVbe = newVbe;
-        emit VbeUpdated(newVbe);
+    function proposeVbeUpdate(uint256 newVbe) external onlyRole(ZK_PROVER_ROLE) {
+        require(!pendingVbe.isPending, "An update is already pending");
+        pendingVbe = PendingVbeUpdate({
+            newVbe: newVbe,
+            proposedAt: block.timestamp,
+            isPending: true
+        });
+        emit VbeProposed(newVbe, block.timestamp);
     }
+
+
+
+    /**
+     * @notice Challenges a pending VBE update.
+     */
+    function challengeVbeUpdate() external onlyRole(CHALLENGER_ROLE) {
+        require(pendingVbe.isPending, "No pending update to challenge");
+        require(block.timestamp <= pendingVbe.proposedAt + VBE_CHALLENGE_WINDOW, "Challenge window expired");
+
+        uint256 challengedVbe = pendingVbe.newVbe;
+        pendingVbe.isPending = false;
+
+        emit VbeChallenged(challengedVbe);
+    }
+
+    /**
+     * @notice Finalizes a proposed VBE update after the challenge window has expired.
+     */
+    function finalizeVbeUpdate() external {
+        require(pendingVbe.isPending, "No pending update to finalize");
+        require(block.timestamp > pendingVbe.proposedAt + VBE_CHALLENGE_WINDOW, "Challenge window has not expired");
+
+        currentVbe = pendingVbe.newVbe;
+        pendingVbe.isPending = false;
+
+        emit VbeUpdated(currentVbe);
+    }
+
+    /**
+     * @notice Sweeps a stagnant account to prevent dust accumulation.
+     * @param zombie The address of the stagnant account to sweep.
+     */
+    function sweepStagnantAccount(address zombie) external {
+        // Stub implementation for now
+        // This will be expanded later to allow MEV bots to clean up dust
+        // in exchange for a tiny fraction of the swept funds.
+        zombie; // suppress warning
+    }
+
 
     /**
      * @notice Applies the VBE circuit breaker modifiers to quorum/decay if entropy is dangerously low.
