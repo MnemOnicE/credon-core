@@ -200,27 +200,41 @@ class Engine:
         [IDENTIFIER: calculate_social_connectivity]
         [DIRECTIONAL: val]
         """
-        P = {agent_id: 1.0 / len(self.agents) for agent_id in self.agents}
+        num_agents = len(self.agents)
+        P = {agent_id: 1.0 / num_agents for agent_id in self.agents}
         d = 0.85  # Damping factor
         iterations = 10
 
+        # Pre-compute normalized interaction weights to avoid redundant out_degree calculations
+        agent_normalized_weights = {}
+        sink_ids = []
+        for u in self.agents.values():
+            out_degree = sum(u.interactions.values())
+            if out_degree > 0:
+                normalized_interactions = {v_id: (weight / out_degree) for v_id, weight in u.interactions.items()}
+                agent_normalized_weights[u.id] = normalized_interactions
+            else:
+                sink_ids.append(u.id)
+
         for _ in range(iterations):
             sink_contribution = 0.0
-            new_P = {agent_id: (1.0 - d) / len(self.agents) for agent_id in self.agents}
-            for u in self.agents.values():
-                out_degree = sum(u.interactions.values())
-                if out_degree > 0:
-                    for v_id, weight in u.interactions.items():
-                        new_P[v_id] += d * (P[u.id] * (weight / out_degree))
-                else:
-                    sink_contribution += d * (P[u.id] / len(self.agents))
+            new_P = {agent_id: (1.0 - d) / num_agents for agent_id in self.agents}
+
+            for u_id, normalized_interactions in agent_normalized_weights.items():
+                p_u_d = P[u_id] * d
+                for v_id, norm_weight in normalized_interactions.items():
+                    new_P[v_id] += p_u_d * norm_weight
+
+            for u_id in sink_ids:
+                sink_contribution += d * (P[u_id] / num_agents)
+
             if sink_contribution > 0:
                 for v_id in self.agents:
                     new_P[v_id] += sink_contribution
             P = new_P
 
         # Scale to meaningful values roughly matching E
-        return {k: v * len(self.agents) for k, v in P.items()}
+        return {k: v * num_agents for k, v in P.items()}
 
     def update_time_weighting(self):
         """Calculates W(u, t) using discrete EMA of verified recent activity.
