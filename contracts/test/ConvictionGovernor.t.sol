@@ -93,23 +93,27 @@ contract ConvictionGovernorTest is Test {
         assertEq(lastCalculatedBlock, block.number);
         assertFalse(executed);
     }
-
     function test_UpdateVbe_ByZkProver() public {
         uint256 newVbe = 0.8e18;
 
         vm.prank(zkProver);
-        governor.updateVbe(newVbe);
+        governor.proposeVbeUpdate(newVbe);
+
+        vm.warp(block.timestamp + governor.VBE_CHALLENGE_WINDOW() + 1);
+
+        governor.finalizeVbeUpdate();
 
         assertEq(governor.currentVbe(), newVbe);
     }
 
     function test_UpdateVbe_RevertUnauthorized() public {
-        uint256 newVbe = 0.8e18;
+        uint256 newVbe = 0.4e18;
 
         vm.prank(voter1);
         vm.expectRevert();
-        governor.updateVbe(newVbe);
+        governor.proposeVbeUpdate(newVbe);
     }
+
 
     function test_StakeToProposal() public {
         vm.startPrank(voter1);
