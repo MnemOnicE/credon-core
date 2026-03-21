@@ -38,10 +38,11 @@ contract RewardsReservoir is AccessControl {
      * @param _initialMaxTokensPerEpoch The maximum amount of $CRE that can be minted per epoch (1 day).
      */
     constructor(address defaultAdmin, address _credonToken, uint256 _initialMaxTokensPerEpoch) {
+        require(_credonToken != address(0), "RewardsReservoir: token address cannot be zero");
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         CREDON_TOKEN = CredonToken(_credonToken);
         maxTokensPerEpoch = _initialMaxTokensPerEpoch;
-        currentEpochStartTime = block.timestamp;
+        currentEpochStartTime += ((block.timestamp - currentEpochStartTime) / EPOCH_DURATION) * EPOCH_DURATION;
     }
 
     /**
@@ -68,7 +69,7 @@ contract RewardsReservoir is AccessControl {
 
         // Check and reset epoch if necessary
         if (block.timestamp >= currentEpochStartTime + EPOCH_DURATION) {
-            currentEpochStartTime = block.timestamp;
+            currentEpochStartTime += ((block.timestamp - currentEpochStartTime) / EPOCH_DURATION) * EPOCH_DURATION;
             tokensMintedThisEpoch = 0;
         }
 

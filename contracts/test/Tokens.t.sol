@@ -168,4 +168,11 @@ contract TokensTest is Test {
 
         assertEq(cre.balanceOf(alice), 1500 * 1e18);
     }
+
+
+    function test_RewardsReservoir_ConstructorZeroAddressReverts() public {
+        vm.expectRevert("RewardsReservoir: token address cannot be zero");
+        new RewardsReservoir(admin, address(0), INITIAL_MAX_EMISSION);
+    }
+
 }
