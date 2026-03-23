@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.24;
+pragma solidity 0.8.27;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
 import {PoseidonUnit2L, PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
 
 /**
- * @title TrustLedgerSMT
+ * @title TrustLedgerSmt
  * @notice Receives and verifies a single 32-byte SMT root hash per recalculation epoch.
  * Integrates optimized inclusion proof verification for user real-time state authentication.
  */
-contract TrustLedgerSMT is AccessControl {
+contract TrustLedgerSmt is AccessControl {
     using SmtLib for SmtLib.Data;
 
     bytes32 public constant ZK_PROVER_ROLE = keccak256("ZK_PROVER_ROLE");

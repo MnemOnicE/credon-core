@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.24;
+pragma solidity 0.8.27;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
@@ -7,7 +7,7 @@ import {CredonToken} from "../src/CredonToken.sol";
 import {CredonBadge} from "../src/CredonBadge.sol";
 import {RewardsReservoir} from "../src/RewardsReservoir.sol";
 import {ConvictionGovernor} from "../src/ConvictionGovernor.sol";
-import {TrustLedgerSMT} from "../src/TrustLedgerSMT.sol";
+import {TrustLedgerSmt} from "../src/TrustLedgerSmt.sol";
 
 contract DeployScript is Script {
     function run() public {
@@ -67,8 +67,8 @@ contract DeployScript is Script {
         console2.log("Deployed ConvictionGovernor at:", address(governor));
 
         // Deploy SMT
-        TrustLedgerSMT trustLedgerSmt = new TrustLedgerSMT(defaultAdmin);
-        console2.log("Deployed TrustLedgerSMT at:", address(trustLedgerSmt));
+        TrustLedgerSmt trustLedgerSmt = new TrustLedgerSmt(defaultAdmin);
+        console2.log("Deployed TrustLedgerSmt at:", address(trustLedgerSmt));
 
         // 4. Setup Roles (Assuming defaultAdmin configures them)
         // Governor must have ZK_PROVER_ROLE on Reservoir

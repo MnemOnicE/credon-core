@@ -14,7 +14,7 @@ async function main() {
 
     // 1. Initialize SMT (in memory for mock)
     const storage = new InMemoryDB(str2Bytes(""));
-    // 64 is the max depth we set in the TrustLedgerSMT contract
+    // 64 is the max depth we set in the TrustLedgerSmt contract
     const mt = new Merkletree(storage, true, 64);
 
     let rootHashHex;
@@ -52,8 +52,12 @@ async function main() {
 
     // 2. Submit to Anvil
     const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
-    const privateKey = process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Anvil account #0
-    const contractAddress = process.env.CONTRACT_ADDRESS; // Address of TrustLedgerSMT
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+        console.error('No PRIVATE_KEY provided. Please set the PRIVATE_KEY environment variable.');
+        process.exit(1);
+    }
+    const contractAddress = process.env.CONTRACT_ADDRESS; // Address of TrustLedgerSmt
 
     if (!contractAddress) {
         console.log("\nNo CONTRACT_ADDRESS provided. Skipping L1 submission. Run this script with CONTRACT_ADDRESS set after deploying via Foundry.");
@@ -64,7 +68,7 @@ async function main() {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const wallet = new ethers.Wallet(privateKey, provider);
 
-    // Minimal ABI for TrustLedgerSMT
+    // Minimal ABI for TrustLedgerSmt
     const abi = [
         "function updateRoot(bytes32 newRoot) external"
     ];
