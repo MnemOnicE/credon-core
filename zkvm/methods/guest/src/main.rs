@@ -1,146 +1,175 @@
-use nalgebra::{DMatrix, DVector};
 use risc0_zkvm::guest::env;
 use serde::{Deserialize, Serialize};
 
+const SCALE: i64 = 10_000;
+const MAX_NODES: usize = 8;
+
 #[derive(Serialize, Deserialize)]
 pub struct TrustInput {
-    pub interactions: Vec<Vec<f64>>, // Adjacency matrix of interactions
+    pub interactions: Vec<Vec<i64>>, // Scaled adjacency matrix, expected size <= MAX_NODES
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TrustOutput {
-    pub transitive_trust: Vec<f64>,
-    pub social_connectivity: Vec<f64>,
+    pub transitive_trust: Vec<i64>,
+    pub social_connectivity: Vec<i64>,
 }
 
-fn calculate_transitive_trust(interactions: &DMatrix<f64>) -> DVector<f64> {
-    let n = interactions.nrows();
-    let mut e = DVector::from_element(n, 1.0);
+// --- Fixed-Point Math Helpers (Strictly i64) ---
+fn fp_mul(a: i64, b: i64) -> i64 {
+    (a * b) / SCALE
+}
+
+/// Divides two fixed-point numbers. Both arguments are expected to be scaled by `SCALE`.
+fn fp_div(a: i64, b: i64) -> i64 {
+    if b == 0 { return 0; }
+    (a * SCALE) / b
+}
+
+fn fp_sqrt(a: i64) -> i64 {
+    // Preserve dimensionality by scaling before the root
+    let scaled = a * SCALE;
+    scaled.isqrt()
+}
+// --------------------------------
+
+fn calculate_transitive_trust(interactions: &[[i64; MAX_NODES]; MAX_NODES], n: usize) -> [i64; MAX_NODES] {
+    let mut e = [SCALE; MAX_NODES];
     let iterations = 5;
 
-    // Normalize interactions (Square root of weights as in Python)
-    let mut normalized_interactions = DMatrix::zeros(n, n);
+    let mut normalized_interactions = [[0; MAX_NODES]; MAX_NODES];
+
     for u in 0..n {
-        let mut total = 0.0;
-        let mut sqrt_weights = vec![0.0; n];
+        let mut total = 0;
+        let mut sqrt_weights = [0; MAX_NODES];
         for v in 0..n {
-            let weight = interactions[(u, v)];
-            if weight > 0.0 {
-                let sqrt_w = weight.sqrt();
+            let weight = interactions[u][v];
+            if weight > 0 {
+                let sqrt_w = fp_sqrt(weight);
                 sqrt_weights[v] = sqrt_w;
                 total += sqrt_w;
             }
         }
-        if total > 0.0 {
+        if total > 0 {
             for v in 0..n {
-                normalized_interactions[(u, v)] = sqrt_weights[v] / total;
+                normalized_interactions[u][v] = fp_div(sqrt_weights[v], total);
             }
         }
     }
 
-    // Power iterations
     for _ in 0..iterations {
-        let mut new_e = DVector::zeros(n);
+        let mut new_e = [0; MAX_NODES];
         for u in 0..n {
             for v in 0..n {
-                new_e[v] += e[u] * normalized_interactions[(u, v)];
+                new_e[v] += fp_mul(e[u], normalized_interactions[u][v]);
             }
         }
 
-        let total_e: f64 = new_e.iter().sum();
-        if total_e > 0.0 {
-            let scale = n as f64 / total_e;
-            e = new_e.map(|val| val * scale);
+        let mut total_e: i64 = 0;
+        for v in 0..n {
+            total_e += new_e[v];
+        }
+
+        if total_e > 0 {
+            let target_sum = (n as i64) * SCALE;
+            for v in 0..n {
+                e[v] = (new_e[v] * target_sum) / total_e;
+            }
         } else {
-            e = new_e;
+            for v in 0..n {
+                e[v] = new_e[v];
+            }
         }
     }
-
     e
 }
 
-fn calculate_social_connectivity(interactions: &DMatrix<f64>) -> DVector<f64> {
-    let n = interactions.nrows();
-    let mut p = DVector::from_element(n, 1.0 / (n as f64));
-    let d = 0.85;
+fn calculate_social_connectivity(interactions: &[[i64; MAX_NODES]; MAX_NODES], n: usize) -> [i64; MAX_NODES] {
+    // Initialize `p` with a uniform distribution (1.0 / n), which is `SCALE / n` in fixed-point.
+    // A direct division is used, as `fp_div` would incorrectly double-scale the numerator.
+    let base_p = SCALE / (n as i64);
+    let mut p = [base_p; MAX_NODES];
+    let d: i64 = 8_500; // 0.85 * SCALE
     let iterations = 10;
 
-    // Normalize interactions based on out-degree
-    let mut normalized_interactions = DMatrix::zeros(n, n);
-    let mut sink_ids = Vec::new();
+    let mut normalized_interactions = [[0; MAX_NODES]; MAX_NODES];
+    let mut sink_flags = [false; MAX_NODES];
+
     for u in 0..n {
-        let mut out_degree = 0.0;
+        let mut out_degree = 0;
         for v in 0..n {
-            out_degree += interactions[(u, v)];
+            out_degree += interactions[u][v];
         }
-        if out_degree > 0.0 {
+        if out_degree > 0 {
             for v in 0..n {
-                normalized_interactions[(u, v)] = interactions[(u, v)] / out_degree;
+                normalized_interactions[u][v] = fp_div(interactions[u][v], out_degree);
             }
         } else {
-            sink_ids.push(u);
+            sink_flags[u] = true;
         }
     }
 
-    // PageRank iterations
     for _ in 0..iterations {
-        let mut sink_contribution = 0.0;
-        let mut new_p = DVector::from_element(n, (1.0 - d) / (n as f64));
+        let mut sink_contribution = 0;
+        // Same bug: SCALE - d is already scaled. To get (1-d)/n, we do (SCALE - d) / n
+        let p_reset = (SCALE - d) / (n as i64);
+        let mut new_p = [p_reset; MAX_NODES];
 
         for u in 0..n {
-            let p_u_d = p[u] * d;
+            let p_u_d = fp_mul(p[u], d);
             for v in 0..n {
-                new_p[v] += p_u_d * normalized_interactions[(u, v)];
+                new_p[v] += fp_mul(p_u_d, normalized_interactions[u][v]);
             }
         }
 
-        for &u in &sink_ids {
-            sink_contribution += d * (p[u] / (n as f64));
+        for u in 0..n {
+            if sink_flags[u] {
+                // Here we want d * (p[u] / n). But p[u] / n is a simple division, not fp_div!
+                // Wait, if p[u] is scaled, p[u]/n is also scaled. So we can just do p[u] / n.
+                let p_u_n = p[u] / (n as i64);
+                sink_contribution += fp_mul(d, p_u_n);
+            }
         }
 
-        if sink_contribution > 0.0 {
+        if sink_contribution > 0 {
             for v in 0..n {
                 new_p[v] += sink_contribution;
             }
         }
-
-        p = new_p;
-    }
-
-    // Scale to meaningful values roughly matching E
-    p.map(|val| val * (n as f64))
-}
-
-fn main() {
-    // 1. Read input from host
-    let input: TrustInput = env::read();
-
-    let n = input.interactions.len();
-    if n == 0 {
-        let output = TrustOutput {
-            transitive_trust: vec![],
-            social_connectivity: vec![],
-        };
-        env::commit(&output);
-        return;
-    }
-
-    // Convert Vec<Vec<f64>> to DMatrix
-    let mut interactions = DMatrix::zeros(n, n);
-    for i in 0..n {
-        for j in 0..n {
-            interactions[(i, j)] = input.interactions[i][j];
+        for v in 0..n {
+            p[v] = new_p[v];
         }
     }
 
-    // 2. Perform Trust Calculations
-    let transitive_trust = calculate_transitive_trust(&interactions);
-    let social_connectivity = calculate_social_connectivity(&interactions);
+    let mut scaled_p = [0; MAX_NODES];
+    for v in 0..n {
+        scaled_p[v] = p[v] * (n as i64);
+    }
+    scaled_p
+}
 
-    // 3. Prepare and Commit Output
+fn main() {
+    let input: TrustInput = env::read();
+    let n = input.interactions.len();
+
+    if n == 0 || n > MAX_NODES {
+        env::commit(&TrustOutput { transitive_trust: vec![], social_connectivity: vec![] });
+        return;
+    }
+
+    let mut interactions = [[0; MAX_NODES]; MAX_NODES];
+    for i in 0..n {
+        for j in 0..n {
+            interactions[i][j] = input.interactions[i][j];
+        }
+    }
+
+    let transitive_trust_arr = calculate_transitive_trust(&interactions, n);
+    let social_connectivity_arr = calculate_social_connectivity(&interactions, n);
+
     let output = TrustOutput {
-        transitive_trust: transitive_trust.as_slice().to_vec(),
-        social_connectivity: social_connectivity.as_slice().to_vec(),
+        transitive_trust: transitive_trust_arr[0..n].to_vec(),
+        social_connectivity: social_connectivity_arr[0..n].to_vec(),
     };
 
     env::commit(&output);
