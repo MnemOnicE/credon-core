@@ -85,8 +85,8 @@ fn calculate_transitive_trust(interactions: &[[i64; MAX_NODES]; MAX_NODES], n: u
 }
 
 fn calculate_social_connectivity(interactions: &[[i64; MAX_NODES]; MAX_NODES], n: usize) -> [i64; MAX_NODES] {
-    // BUG FIX: `fp_div(SCALE, n as i64)` double scales because fp_div scales the numerator again.
-    // The fraction we want is `1.0 / n`, which in fixed point is `SCALE / n`.
+    // Initialize `p` with a uniform distribution (1.0 / n), which is `SCALE / n` in fixed-point.
+    // A direct division is used, as `fp_div` would incorrectly double-scale the numerator.
     let base_p = SCALE / (n as i64);
     let mut p = [base_p; MAX_NODES];
     let d: i64 = 8_500; // 0.85 * SCALE
