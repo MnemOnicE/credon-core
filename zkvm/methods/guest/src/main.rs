@@ -20,6 +20,7 @@ fn fp_mul(a: i64, b: i64) -> i64 {
     (a * b) / SCALE
 }
 
+/// Divides two fixed-point numbers. Both arguments are expected to be scaled by `SCALE`.
 fn fp_div(a: i64, b: i64) -> i64 {
     if b == 0 { return 0; }
     (a * SCALE) / b
