@@ -73,23 +73,6 @@ fn main() {
 
     println!("\nSocial Connectivity (PageRank):");
     for (i, val) in output.social_connectivity.iter().enumerate() {
-        // Output formatting fix. Because of the `SCALE`, values should be normalized properly.
-        // Wait, the guest code `scaled_p[v] = p[v] * (n as i64);`
-        // But what was it previously returning?
-        // Oh, wait! In f64 we returned `p.map(|val| val * (n as f64))`
-        // But `val` was a fraction (0.0 to 1.0).
-        // Here, `p[v]` is scaled by `SCALE`, so `p[v] * n` is scaled by `SCALE * n`? No, just scaled by SCALE.
-        // Wait, look at `calculate_social_connectivity`:
-        // base_p = SCALE / n. So the sum of p is SCALE.
-        // When we do p * n, we get around SCALE.
-        // But wait! If we do `p[v] * n`, and then divide by `SCALE as f64`, we should get numbers near 1.0.
-        // So why is it 8389.5136?
-        // Let's look at `base_p = fp_div(SCALE, n as i64)`.
-        // `fp_div(SCALE, n) = (SCALE * SCALE) / n`.
-        // THAT IS THE BUG.
-        // I called `fp_div` to divide SCALE by n.
-        // `fp_div(a, b)` does `(a * SCALE) / b`.
-        // So `fp_div(SCALE, n)` did `(SCALE * SCALE) / n`. So it returned a double-scaled value!
         println!("  Agent {}: {:.4}", i, *val as f64 / SCALE as f64);
     }
 
