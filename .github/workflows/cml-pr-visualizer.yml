@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup CML
-        uses: iterative/setup-cml@v3
+        uses: iterative/setup-cml@v2
 
       - name: Set up Python
         uses: actions/setup-python@v6
