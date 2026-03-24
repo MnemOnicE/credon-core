@@ -1,5 +1,5 @@
 import math
-import secrets
+import random
 
 from agents import Agent
 
