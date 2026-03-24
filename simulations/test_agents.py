@@ -1,11 +1,10 @@
-import pytest
 """
-[EXPLANATORY: Tests for Agent class]
+[EXPLANATORY: Unit tests for the Agent class.]
 [IDENTIFIER: TestAgent]
 """
 
+import pytest
 from simulations.agents import Agent
-
 
 class TestAgent:
     """

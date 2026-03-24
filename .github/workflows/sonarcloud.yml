@@ -1,8 +1,5 @@
 name: Core CI - SonarCloud Quality Gate
 
-permissions:
-  contents: read
-
 on:
   push:
     branches: [ main ]

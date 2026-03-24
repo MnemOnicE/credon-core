@@ -1,6 +1,4 @@
 name: Sync Docs to Wiki
-permissions:
-  contents: write
 
 on:
   push:
