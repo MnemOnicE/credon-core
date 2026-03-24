@@ -150,7 +150,7 @@ class Engine:
         self.active_loans = []
 
         # Initialize cryptographically secure random number generator
-        self.rng = secrets.SystemRandom()
+        self.rng = random.SystemRandom()
 
         # Pre-compute static agent groups for performance optimization
         self.honest_ids = []
