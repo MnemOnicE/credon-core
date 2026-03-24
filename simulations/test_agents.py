@@ -1,5 +1,11 @@
 import pytest
+"""
+[EXPLANATORY: Tests for Agent class]
+[IDENTIFIER: TestAgent]
+"""
+
 from simulations.agents import Agent
+
 
 class TestAgent:
     """

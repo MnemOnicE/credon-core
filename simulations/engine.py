@@ -1,5 +1,5 @@
 import math
-import random
+import secrets
 
 from agents import Agent
 
@@ -149,6 +149,9 @@ class Engine:
         # Global Loan Registry
         self.active_loans = []
 
+        # Initialize cryptographically secure random number generator
+        self.rng = random.SystemRandom()
+
         # Pre-compute static agent groups for performance optimization
         self.honest_ids = []
         self.malicious_ids = []
@@ -157,6 +160,9 @@ class Engine:
                 self.malicious_ids.append(a_id)
             else:
                 self.honest_ids.append(a_id)
+
+        # Cryptographically secure random number generator
+        self.secure_random = secrets.SystemRandom()
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
@@ -171,11 +177,13 @@ class Engine:
         # Pre-compute total interactions and normalized weights to avoid redundant calculations
         agent_normalized_weights = {}
         for u in self.agents.values():
-            total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
+            # Pre-calculate square roots to avoid redundant computation in the normalization loop
+            sqrt_weights = {v_id: math.sqrt(w) for v_id, w in u.interactions.items()}
+            total_interactions = sum(sqrt_weights.values())
             normalized_interactions = {}
             if total_interactions > 0:
-                for v_id, weight in u.interactions.items():
-                    normalized_interactions[v_id] = math.sqrt(weight) / total_interactions
+                for v_id, w_sqrt in sqrt_weights.items():
+                    normalized_interactions[v_id] = w_sqrt / total_interactions
             agent_normalized_weights[u.id] = normalized_interactions
 
         for _ in range(iterations):
@@ -280,14 +288,14 @@ class Engine:
             # Interact with a few other honest nodes randomly to build the social graph
             other_honest_ids = [hid for hid in honest_ids if hid != a_id]
             if other_honest_ids:
-                friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
+                friends = self.secure_random.sample(other_honest_ids, min(3, len(other_honest_ids)))
                 for friend in friends:
                     sponsor.interact_with(friend, self.L)
 
             # Try to sponsor a candidate
             if sponsor.balance >= self.B:
                 # Random honest candidate
-                candidate_id = random.choice(honest_ids)
+                candidate_id = self.secure_random.choice(honest_ids)
                 candidate = self.agents[candidate_id]
 
                 # Check candidate bond

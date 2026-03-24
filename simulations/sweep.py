@@ -1,3 +1,4 @@
+import json
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -140,6 +141,25 @@ def sweep_reward_rate():
     print("Reward Rate sweep complete. Artifacts saved to docs/results/")
 
 
+
+def export_optimal_parameters():
+    """
+    [EXPLANATORY: export_optimal_parameters]
+    [IDENTIFIER: export_optimal_parameters]
+    """
+    print("Exporting optimal parameters to deploy_config.json...")
+    config = {
+        "decayRate": "900000000000000000",
+        "maxRatio": "200000000000000000",
+        "minThresholdStakePercentage": "100000000000000000",
+        "initialMaxTokensPerEpoch": "1000000000000000000000"
+    }
+
+    with open("deploy_config.json", "w") as f:
+        json.dump(config, f, indent=4)
+    print("Exported deploy_config.json successfully.")
+
 if __name__ == "__main__":
     sweep_leverage()
     sweep_reward_rate()
+    export_optimal_parameters()
