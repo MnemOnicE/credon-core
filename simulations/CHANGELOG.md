@@ -1,18 +1,5 @@
 # Changelog
 
-## [1.1.1](https://github.com/MnemOnicE/credon-core/compare/credon-simulations-v1.1.0...credon-simulations-v1.1.1) (2026-03-21)
-
-
-### Bug Fixes
-
-* **security:** replace insecure PRNG with cryptographically secure secrets module ([8e0e6e8](https://github.com/MnemOnicE/credon-core/commit/8e0e6e8986c7af86f779a221f5c48d23e7bb156e))
-
-
-### Performance Improvements
-
-* **simulations:** optimize social connectivity calculation by pre-calculating out_degrees ([830b3b3](https://github.com/MnemOnicE/credon-core/commit/830b3b35903f0ff7600aee8f69191557cd6346cb))
-* **simulations:** optimize Transitive Trust normalization loop ([9897a7a](https://github.com/MnemOnicE/credon-core/commit/9897a7a94dcc5d8b27c4d78f150baf1e5ac95dd9))
-
 ## [1.1.0](https://github.com/MnemOnicE/credon-core/compare/credon-simulations-v1.0.0...credon-simulations-v1.1.0) (2026-03-10)
 
 

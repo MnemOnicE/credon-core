@@ -4,9 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -15,6 +12,8 @@ jobs:
   commitlint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Install Commitlint
         run: npm install -g @commitlint/cli @commitlint/config-conventional
       - name: Validate PR Commits

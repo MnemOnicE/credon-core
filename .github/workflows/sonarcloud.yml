@@ -1,8 +1,5 @@
 name: Core CI - SonarCloud Quality Gate
 
-permissions:
-  contents: read
-
 on:
   push:
     branches: [ main ]
@@ -18,6 +15,8 @@ jobs:
     name: SonarCloud Static Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
