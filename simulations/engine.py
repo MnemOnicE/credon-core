@@ -149,6 +149,9 @@ class Engine:
         # Global Loan Registry
         self.active_loans = []
 
+        # Initialize cryptographically secure random number generator
+        self.rng = random.SystemRandom()
+
         # Pre-compute static agent groups for performance optimization
         self.honest_ids = []
         self.malicious_ids = []
