@@ -6,6 +6,7 @@
 import pytest
 from simulations.agents import Agent
 
+
 class TestAgent:
     """
     [EXPLANATORY: TestAgent]
