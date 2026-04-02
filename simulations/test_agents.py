@@ -101,7 +101,7 @@ class TestAgent:
         [EXPLANATORY: test_post_candidate_bond_insufficient_balance]
         [IDENTIFIER: test_post_candidate_bond_insufficient_balance]
         """
-        agent.balance = 100  # Less than default B=500
+        agent.balance = agent.B - 1  # Ensure balance is less than bond amount B
         initial_balance = agent.balance
 
         result = agent.post_candidate_bond()
