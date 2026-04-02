@@ -455,7 +455,7 @@ class Engine:
         target_malicious = []
         other_malicious = []
         for p in active_proposals:
-            if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9):
+            if p.target_rho == malicious_target_rho:
                 target_malicious.append(p)
             else:
                 other_malicious.append(p)
