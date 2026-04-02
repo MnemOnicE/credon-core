@@ -283,14 +283,14 @@ class Engine:
             # Interact with a few other honest nodes randomly to build the social graph
             other_honest_ids = [hid for hid in honest_ids if hid != a_id]
             if other_honest_ids:
-                friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
+                friends = self.rng.sample(other_honest_ids, min(3, len(other_honest_ids)))
                 for friend in friends:
                     sponsor.interact_with(friend, self.L)
 
             # Try to sponsor a candidate
             if sponsor.balance >= self.B:
                 # Random honest candidate
-                candidate_id = random.choice(honest_ids)
+                candidate_id = self.rng.choice(honest_ids)
                 candidate = self.agents[candidate_id]
 
                 # Check candidate bond
