@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.2.0](https://github.com/MnemOnicE/credon-core/compare/credon-simulations-v1.1.0...credon-simulations-v1.2.0) (2026-04-02)
+
+
+### Features
+
+* **contracts:** init Foundry and scaffold Vouching 2.0 mechanism ([f35be51](https://github.com/MnemOnicE/credon-core/commit/f35be511dd7b89aa57ad9ffc7736fa9dc200cab9))
+* **contracts:** init Foundry and scaffold Vouching 2.0 mechanism ([e925622](https://github.com/MnemOnicE/credon-core/commit/e925622a4c8230d7ffefc135292151fbb260fe11))
+* **contracts:** init Foundry and scaffold Vouching 2.0 mechanism ([6d25cc9](https://github.com/MnemOnicE/credon-core/commit/6d25cc9932729cee3f96bd40e9a6bebe05cf2357))
+* implement phase 1.4 sparse merkle tree integration ([3398dec](https://github.com/MnemOnicE/credon-core/commit/3398dec093a4a5e5b163f156c9e29ec2f7aec0da))
+* Optimistic ZK Prover Oracle, Invariant Fuzzing, and Python Deployment Linking ([#39](https://github.com/MnemOnicE/credon-core/issues/39)) ([ff45a01](https://github.com/MnemOnicE/credon-core/commit/ff45a019256bd1546bdd39b0e428e27a4388a133))
+
+
+### Bug Fixes
+
+* address pr comments and linting errors ([30fc990](https://github.com/MnemOnicE/credon-core/commit/30fc990fa2487cda70359074fb137d1dc223fe55))
+* **security:** replace insecure PRNG with cryptographically secure secrets module ([8e0e6e8](https://github.com/MnemOnicE/credon-core/commit/8e0e6e8986c7af86f779a221f5c48d23e7bb156e))
+* use cryptographically secure RNG for agent interactions ([b525968](https://github.com/MnemOnicE/credon-core/commit/b5259684802b5223ff29ce937bf071dff1db009e))
+
+
+### Performance Improvements
+
+* **sim:** optimize voting loops in engine.py by pre-categorizing proposals ([f6d7f2d](https://github.com/MnemOnicE/credon-core/commit/f6d7f2d85d60d4ace183e562d1a4cd04fc2036b3))
+* **simulations:** final optimization and CI stabilization ([697b3ad](https://github.com/MnemOnicE/credon-core/commit/697b3ada2bd76e48573c41b7a2b86489da705c21))
+* **simulations:** finalize optimization and update workflows ([499066e](https://github.com/MnemOnicE/credon-core/commit/499066e42a679bfa37ad461631f6f8ba8250c76b))
+* **simulations:** optimize social connectivity and restore agent tests ([911f0fc](https://github.com/MnemOnicE/credon-core/commit/911f0fc2682e0cb3cf8b2e7bb129199ee2303e7d))
+* **simulations:** optimize social connectivity calculation by pre-calculating out_degrees ([830b3b3](https://github.com/MnemOnicE/credon-core/commit/830b3b35903f0ff7600aee8f69191557cd6346cb))
+* **simulations:** optimize Transitive Trust normalization loop ([9897a7a](https://github.com/MnemOnicE/credon-core/commit/9897a7a94dcc5d8b27c4d78f150baf1e5ac95dd9))
+* **zkvm:** refactor guest to i64 fixed-point math ([839037e](https://github.com/MnemOnicE/credon-core/commit/839037e7512d488e51a06ae816b7afcd33eda616))
+
 ## [1.1.0](https://github.com/MnemOnicE/credon-core/compare/credon-simulations-v1.0.0...credon-simulations-v1.1.0) (2026-03-10)
 
 
