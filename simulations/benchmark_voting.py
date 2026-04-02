@@ -71,7 +71,7 @@ def benchmark_malicious_voting(engine):
     target_malicious = []
     other_malicious = []
     for p in active_proposals:
-        if p.target_rho == malicious_target_rho:
+        if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9):
             target_malicious.append(p)
         else:
             other_malicious.append(p)
