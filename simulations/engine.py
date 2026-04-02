@@ -407,17 +407,25 @@ class Engine:
                     active_proposals.append(new_prop)
                     honest_proposal = new_prop
 
+            # Categorize proposals once for efficiency
+            reasonable_proposals = []
+            extreme_proposals = []
+            for p in active_proposals:
+                if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
+                    reasonable_proposals.append(p)
+                else:
+                    extreme_proposals.append(p)
+
             # Honest agents vote
             for a_id in honest_ids:
                 agent = self.agents[a_id]
                 if agent.cred_balance > 0:
-                    for p in active_proposals:
-                        if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
-                            # Vote yes on reasonable proposals
-                            p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
-                        else:
-                            # Vote no on extreme proposals
-                            p.cast_vote(a_id, agent.cred_balance, False, self.epoch)
+                    for p in reasonable_proposals:
+                        # Vote yes on reasonable proposals
+                        p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
+                    for p in extreme_proposals:
+                        # Vote no on extreme proposals
+                        p.cast_vote(a_id, agent.cred_balance, False, self.epoch)
 
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
@@ -443,15 +451,23 @@ class Engine:
                 active_proposals.append(new_prop)
                 malicious_proposal = new_prop
 
+        # Categorize proposals for malicious agents
+        target_malicious = []
+        other_malicious = []
+        for p in active_proposals:
+            if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9):
+                target_malicious.append(p)
+            else:
+                other_malicious.append(p)
+
         # Malicious agents vote
         for m_id in malicious_ids:
             agent = self.agents[m_id]
             if agent.cred_balance > 0:
-                for p in active_proposals:
-                    if p.target_rho == malicious_target_rho:
-                        p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
-                    else:
-                        p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
+                for p in target_malicious:
+                    p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
+                for p in other_malicious:
+                    p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
 
         # 3.6 Tally Votes and Update Status
         for p in active_proposals:

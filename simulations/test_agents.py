@@ -83,3 +83,29 @@ class TestAgent:
         }
         assert result == expected_result
         assert agent.balance == initial_balance - bond_amount
+
+    def test_post_candidate_bond_sufficient_balance(self, agent):
+        """
+        [EXPLANATORY: test_post_candidate_bond_sufficient_balance]
+        [IDENTIFIER: test_post_candidate_bond_sufficient_balance]
+        """
+        initial_balance = agent.balance
+        bond_amount = agent.B
+
+        result = agent.post_candidate_bond()
+
+        assert result == bond_amount
+        assert agent.balance == initial_balance - bond_amount
+
+    def test_post_candidate_bond_insufficient_balance(self, agent):
+        """
+        [EXPLANATORY: test_post_candidate_bond_insufficient_balance]
+        [IDENTIFIER: test_post_candidate_bond_insufficient_balance]
+        """
+        agent.balance = agent.B - 1  # Ensure balance is less than bond amount B
+        initial_balance = agent.balance
+
+        result = agent.post_candidate_bond()
+
+        assert result == 0
+        assert agent.balance == initial_balance
