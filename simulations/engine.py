@@ -283,14 +283,14 @@ class Engine:
             # Interact with a few other honest nodes randomly to build the social graph
             other_honest_ids = [hid for hid in honest_ids if hid != a_id]
             if other_honest_ids:
-                friends = random.sample(other_honest_ids, min(3, len(other_honest_ids)))
+                friends = self.rng.sample(other_honest_ids, min(3, len(other_honest_ids)))
                 for friend in friends:
                     sponsor.interact_with(friend, self.L)
 
             # Try to sponsor a candidate
             if sponsor.balance >= self.B:
                 # Random honest candidate
-                candidate_id = random.choice(honest_ids)
+                candidate_id = self.rng.choice(honest_ids)
                 candidate = self.agents[candidate_id]
 
                 # Check candidate bond
@@ -386,7 +386,11 @@ class Engine:
                 target_rho = min(0.50, self.rho + 0.01)
 
             # Check if there is an active proposal matching the target
-            honest_proposal = next((p for p in active_proposals if p.target_rho == target_rho), None)
+            honest_proposal = None
+            if target_rho is not None:
+                honest_proposal = next(
+                    (p for p in active_proposals if math.isclose(p.target_rho, target_rho, abs_tol=1e-9)), None
+                )
 
             if target_rho is not None and honest_proposal is None:
                 # Find an honest agent with $CRED to propose
@@ -416,21 +420,26 @@ class Engine:
                 else:
                     extreme_proposals.append(p)
 
+            # Pre-filter agents with balance to avoid redundant dictionary lookups
+            active_honest = [
+                (a_id, self.agents[a_id].cred_balance) for a_id in honest_ids if self.agents[a_id].cred_balance > 0
+            ]
+
             # Honest agents vote
-            for a_id in honest_ids:
-                agent = self.agents[a_id]
-                if agent.cred_balance > 0:
-                    for p in reasonable_proposals:
-                        # Vote yes on reasonable proposals
-                        p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
-                    for p in extreme_proposals:
-                        # Vote no on extreme proposals
-                        p.cast_vote(a_id, agent.cred_balance, False, self.epoch)
+            for a_id, balance in active_honest:
+                for p in reasonable_proposals:
+                    # Vote yes on reasonable proposals
+                    p.cast_vote(a_id, balance, True, self.epoch)
+                for p in extreme_proposals:
+                    # Vote no on extreme proposals
+                    p.cast_vote(a_id, balance, False, self.epoch)
 
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
         malicious_target_rho = 0.50
-        malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
+        malicious_proposal = next(
+            (p for p in active_proposals if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9)), None
+        )
 
         if malicious_proposal is None and malicious_ids:
             # Malicious agent tries to propose if they have $CRED (unlikely if they default)
@@ -455,19 +464,22 @@ class Engine:
         target_malicious = []
         other_malicious = []
         for p in active_proposals:
-            if p.target_rho == malicious_target_rho:
+            if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9):
                 target_malicious.append(p)
             else:
                 other_malicious.append(p)
 
+        # Pre-filter malicious agents with balance
+        active_malicious = [
+            (m_id, self.agents[m_id].cred_balance) for m_id in malicious_ids if self.agents[m_id].cred_balance > 0
+        ]
+
         # Malicious agents vote
-        for m_id in malicious_ids:
-            agent = self.agents[m_id]
-            if agent.cred_balance > 0:
-                for p in target_malicious:
-                    p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
-                for p in other_malicious:
-                    p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
+        for m_id, balance in active_malicious:
+            for p in target_malicious:
+                p.cast_vote(m_id, balance, True, self.epoch)
+            for p in other_malicious:
+                p.cast_vote(m_id, balance, False, self.epoch)
 
         # 3.6 Tally Votes and Update Status
         for p in active_proposals:
