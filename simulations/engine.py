@@ -207,9 +207,11 @@ class Engine:
         d = 0.85  # Damping factor
         iterations = 10
 
+        num_agents = len(self.agents)
         for _ in range(iterations):
             sink_contribution = 0.0
-            new_P = {agent_id: (1.0 - d) / len(self.agents) for agent_id in self.agents}
+            base_p = (1.0 - d) / num_agents if num_agents > 0 else 0.0
+            new_P = {agent_id: base_p for agent_id in self.agents}
             for u in self.agents.values():
                 out_degree = sum(u.interactions.values())
                 if out_degree > 0:
@@ -372,7 +374,10 @@ class Engine:
                 target_rho = min(0.50, self.rho + 0.01)
 
             # Check if there is an active proposal matching the target
-            honest_proposal = next((p for p in active_proposals if p.target_rho == target_rho), None)
+            honest_proposal = next(
+                (p for p in active_proposals if math.isclose(p.target_rho, target_rho)),
+                None,
+            )
 
             if target_rho is not None and honest_proposal is None:
                 # Find an honest agent with $CRED to propose
@@ -408,7 +413,10 @@ class Engine:
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
         malicious_target_rho = 0.50
-        malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
+        malicious_proposal = next(
+            (p for p in active_proposals if math.isclose(p.target_rho, malicious_target_rho)),
+            None,
+        )
 
         if malicious_proposal is None and malicious_ids:
             # Malicious agent tries to propose if they have $CRED (unlikely if they default)
@@ -434,7 +442,7 @@ class Engine:
             agent = self.agents[m_id]
             if agent.cred_balance > 0:
                 for p in active_proposals:
-                    if p.target_rho == malicious_target_rho:
+                    if math.isclose(p.target_rho, malicious_target_rho):
                         p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
                     else:
                         p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
