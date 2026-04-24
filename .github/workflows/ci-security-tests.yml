@@ -22,15 +22,19 @@ jobs:
     name: Python Engine Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
 
 
       - name: Install dependencies
@@ -44,7 +48,7 @@ jobs:
 
       - name: Report Ruff Failure
         if: failure() && steps.ruff_check.outcome == 'failure'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -65,7 +69,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Run Slither Static Analysis
         uses: crytic/slither-action@v0.4.2
@@ -73,3 +77,18 @@ jobs:
           target: 'contracts/'
           fail-on: 'high'
         continue-on-error: true
+
+  foundry-tests:
+    name: Foundry Smart Contract Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Forge Test
+        run: cd contracts && forge test
