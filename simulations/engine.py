@@ -40,6 +40,21 @@ class Proposal:
             "vote": vote,
         }
 
+    def cast_votes_batch(self, active_agents, vote, current_epoch):
+        """
+        [EXPLANATORY: cast_votes_batch]
+        [IDENTIFIER: cast_votes_batch]
+        """
+        updates = {
+            agent_id: {
+                "amount": amount,
+                "epoch_staked": current_epoch,
+                "vote": vote,
+            }
+            for agent_id, amount in active_agents
+        }
+        self.votes.update(updates)
+
     def update_conviction(self, alpha, t_max, current_epoch):
         """
         [EXPLANATORY: update_conviction]
@@ -417,13 +432,12 @@ class Engine:
             ]
 
             # Honest agents vote
-            for a_id, balance in active_honest:
-                for p in reasonable_proposals:
-                    # Vote yes on reasonable proposals
-                    p.cast_vote(a_id, balance, True, self.epoch)
-                for p in extreme_proposals:
-                    # Vote no on extreme proposals
-                    p.cast_vote(a_id, balance, False, self.epoch)
+            updates_yes = Proposal.create_batch_updates(active_honest, True, self.epoch)
+            updates_no = Proposal.create_batch_updates(active_honest, False, self.epoch)
+            for p in reasonable_proposals:
+                p.cast_votes_batch(updates_yes)
+            for p in extreme_proposals:
+                p.cast_votes_batch(updates_no)
 
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
@@ -466,11 +480,12 @@ class Engine:
         ]
 
         # Malicious agents vote
-        for m_id, balance in active_malicious:
-            for p in target_malicious:
-                p.cast_vote(m_id, balance, True, self.epoch)
-            for p in other_malicious:
-                p.cast_vote(m_id, balance, False, self.epoch)
+        updates_yes = Proposal.create_batch_updates(active_malicious, True, self.epoch)
+        updates_no = Proposal.create_batch_updates(active_malicious, False, self.epoch)
+        for p in target_malicious:
+            p.cast_votes_batch(updates_yes)
+        for p in other_malicious:
+            p.cast_votes_batch(updates_no)
 
         # 3.6 Tally Votes and Update Status
         for p in active_proposals:
