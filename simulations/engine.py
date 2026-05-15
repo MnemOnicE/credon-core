@@ -40,7 +40,7 @@ class Proposal:
             "vote": vote,
         }
 
-    def update_conviction(self, alpha, t_max, current_epoch):
+    def update_conviction(self, alpha):
         """
         [EXPLANATORY: update_conviction]
         [IDENTIFIER: update_conviction]
@@ -167,11 +167,11 @@ class Engine:
 
         # Flatten edges into (u_idx, v_idx, weight)
         edges = []
-        for u_id, u in self.agents.items():
+        for u_id, agent_obj in self.agents.items():
             u_idx = id_to_idx[u_id]
-            total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
+            total_interactions = sum(math.sqrt(w) for w in agent_obj.interactions.values())
             if total_interactions > 0:
-                for v_id, weight in u.interactions.items():
+                for v_id, weight in agent_obj.interactions.items():
                     if v_id in id_to_idx:
                         edges.append((u_idx, id_to_idx[v_id], math.sqrt(weight) / total_interactions))
 
@@ -476,7 +476,7 @@ class Engine:
         for p in active_proposals:
             if p.is_core:
                 # Update conviction y_t
-                _, _, _ = p.update_conviction(self.alpha_conviction, self.t_max, self.epoch)
+                _, _, _ = p.update_conviction(self.alpha_conviction)
 
                 # Check if conviction threshold is met
                 # Threshold: 20% of maximum theoretical network conviction
@@ -504,7 +504,7 @@ class Engine:
             else:
                 # Minor proposal - Discrete voting with dynamic quorums
                 # Get actual time-weighted voting power V_t, and total raw staked tokens.
-                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
+                v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0)
 
                 # Check Quorum (total actual tokens staked regardless of time weight)
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
