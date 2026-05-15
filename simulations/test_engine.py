@@ -85,3 +85,85 @@ class TestProposal:
             "H_1": {"amount": 100.0, "epoch_staked": 2, "vote": True},
             "M_1": {"amount": 50.0, "epoch_staked": 3, "vote": False},
         }
+
+    def test_update_conviction_no_votes(self, proposal):
+        """
+        [EXPLANATORY: test_update_conviction_no_votes]
+        [IDENTIFIER: test_update_conviction_no_votes]
+        """
+        v_yes, v_no, total = proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=2)
+        assert v_yes == 0.0
+        assert v_no == 0.0
+        assert total == 0.0
+        assert proposal.y_t_yes == 0.0
+        assert proposal.y_t_no == 0.0
+
+    def test_update_conviction_only_yes(self, proposal):
+        """
+        [EXPLANATORY: test_update_conviction_only_yes]
+        [IDENTIFIER: test_update_conviction_only_yes]
+        """
+        proposal.cast_vote(agent_id="H_1", amount=100.0, vote=True, current_epoch=2)
+        v_yes, v_no, total = proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=2)
+        assert v_yes == 100.0
+        assert v_no == 0.0
+        assert total == 100.0
+        assert proposal.y_t_yes == 100.0
+        assert proposal.y_t_no == 0.0
+
+    def test_update_conviction_only_no(self, proposal):
+        """
+        [EXPLANATORY: test_update_conviction_only_no]
+        [IDENTIFIER: test_update_conviction_only_no]
+        """
+        proposal.cast_vote(agent_id="H_1", amount=100.0, vote=False, current_epoch=2)
+        v_yes, v_no, total = proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=2)
+        assert v_yes == 0.0
+        assert v_no == 100.0
+        assert total == 100.0
+        assert proposal.y_t_yes == 0.0
+        assert proposal.y_t_no == 100.0
+
+    def test_update_conviction_mixed_votes(self, proposal):
+        """
+        [EXPLANATORY: test_update_conviction_mixed_votes]
+        [IDENTIFIER: test_update_conviction_mixed_votes]
+        """
+        proposal.cast_vote(agent_id="H_1", amount=100.0, vote=True, current_epoch=2)
+        proposal.cast_vote(agent_id="M_1", amount=50.0, vote=False, current_epoch=2)
+        v_yes, v_no, total = proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=2)
+        assert v_yes == 100.0
+        assert v_no == 50.0
+        assert total == 150.0
+        assert proposal.y_t_yes == 100.0
+        assert proposal.y_t_no == 50.0
+
+    def test_update_conviction_decay(self, proposal):
+        """
+        [EXPLANATORY: test_update_conviction_decay]
+        [IDENTIFIER: test_update_conviction_decay]
+        """
+        proposal.cast_vote(agent_id="H_1", amount=100.0, vote=True, current_epoch=2)
+        proposal.cast_vote(agent_id="M_1", amount=50.0, vote=False, current_epoch=2)
+
+        # Epoch 1: Add votes
+        proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=2)
+        assert proposal.y_t_yes == 100.0
+        assert proposal.y_t_no == 50.0
+
+        # Epoch 2: Same votes should increase conviction due to accumulation
+        # alpha = 0.9. Next y_t_yes = (0.9 * 100) + 100 = 190.0
+        # Next y_t_no = (0.9 * 50) + 50 = 95.0
+        proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=3)
+        assert proposal.y_t_yes == 190.0
+        assert proposal.y_t_no == 95.0
+
+        # Change vote to see it reflect
+        proposal.cast_vote(agent_id="H_1", amount=0.0, vote=True, current_epoch=4)  # H_1 removes stake
+
+        # Epoch 3: Conviction decays
+        # Next y_t_yes = (0.9 * 190) + 0 = 171.0
+        # Next y_t_no = (0.9 * 95) + 50 = 135.5
+        proposal.update_conviction(alpha=0.9, t_max=10, current_epoch=4)
+        assert proposal.y_t_yes == 171.0
+        assert proposal.y_t_no == 135.5
