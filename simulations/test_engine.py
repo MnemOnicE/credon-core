@@ -86,6 +86,7 @@ class TestProposal:
             "M_1": {"amount": 50.0, "epoch_staked": 3, "vote": False},
         }
 
+
 class TestTransitiveTrust:
     """
     [EXPLANATORY: TestTransitiveTrust]
