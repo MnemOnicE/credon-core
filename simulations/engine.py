@@ -417,12 +417,11 @@ class Engine:
             ]
 
             # Honest agents vote
-            for a_id, balance in active_honest:
-                for p in reasonable_proposals:
-                    # Vote yes on reasonable proposals
+            for p in reasonable_proposals:
+                for a_id, balance in active_honest:
                     p.cast_vote(a_id, balance, True, self.epoch)
-                for p in extreme_proposals:
-                    # Vote no on extreme proposals
+            for p in extreme_proposals:
+                for a_id, balance in active_honest:
                     p.cast_vote(a_id, balance, False, self.epoch)
 
         # Malicious Agent Behavior
@@ -466,10 +465,11 @@ class Engine:
         ]
 
         # Malicious agents vote
-        for m_id, balance in active_malicious:
-            for p in target_malicious:
+        for p in target_malicious:
+            for m_id, balance in active_malicious:
                 p.cast_vote(m_id, balance, True, self.epoch)
-            for p in other_malicious:
+        for p in other_malicious:
+            for m_id, balance in active_malicious:
                 p.cast_vote(m_id, balance, False, self.epoch)
 
         # 3.6 Tally Votes and Update Status
