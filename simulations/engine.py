@@ -34,18 +34,11 @@ class Proposal:
         [EXPLANATORY: cast_vote]
         [IDENTIFIER: cast_vote]
         """
-        if agent_id in self.votes:
-            if self.votes[agent_id]["vote"] != vote:
-                self.votes[agent_id]["epoch_staked"] = current_epoch
-                self.votes[agent_id]["vote"] = vote
-
-            self.votes[agent_id]["amount"] = amount
-        else:
-            self.votes[agent_id] = {
-                "amount": amount,
-                "epoch_staked": current_epoch,
-                "vote": vote,
-            }
+        self.votes[agent_id] = {
+            "amount": amount,
+            "epoch_staked": current_epoch,
+            "vote": vote,
+        }
 
     def update_conviction(self, alpha, t_max, current_epoch):
         """
@@ -60,23 +53,20 @@ class Proposal:
 
         for agent_id, vote_data in self.votes.items():
             amount = vote_data["amount"]
-            epoch_staked = vote_data["epoch_staked"]
             vote = vote_data["vote"]
 
-            # Calculate time-weighted voting power
-            t_staked = current_epoch - epoch_staked
-            multiplier = min(1.0, t_staked / t_max) if t_max > 0 else 1.0
-            V = amount * multiplier
             total_staked_in_vote += amount
 
             if vote:
-                v_t_yes += V
+                v_t_yes += amount
             else:
-                v_t_no += V
+                v_t_no += amount
 
         # y_t = alpha * y_{t-1} + V_t
         self.y_t_yes = (alpha * self.y_t_yes) + v_t_yes
         self.y_t_no = (alpha * self.y_t_no) + v_t_no
+
+        return v_t_yes, v_t_no, total_staked_in_vote
 
         return v_t_yes, v_t_no, total_staked_in_vote
 
@@ -163,39 +153,40 @@ class Engine:
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
-        """Calculates EigenTrust-style E(u) for all agents.
+        """Calculates EigenTrust-style E(u) for all agents using integer-based arrays.
         [EXPLANATORY: calculate_transitive_trust]
         [IDENTIFIER: calculate_transitive_trust]
         [DIRECTIONAL: val]
         """
-        E = {agent_id: 1.0 for agent_id in self.agents}  # Initial flat trust
-        iterations = 5  # Small number of power iterations to converge local graph
+        agent_ids = list(self.agents.keys())
+        id_to_idx = {agent_id: i for i, agent_id in enumerate(agent_ids)}
+        num_agents = len(agent_ids)
 
-        # Pre-compute total interactions and normalized weights to avoid redundant calculations
-        agent_normalized_weights = {}
-        for u in self.agents.values():
+        E = [1.0] * num_agents
+        iterations = 5
+
+        # Flatten edges into (u_idx, v_idx, weight)
+        edges = []
+        for u_id, u in self.agents.items():
+            u_idx = id_to_idx[u_id]
             total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
-            normalized_interactions = {}
             if total_interactions > 0:
                 for v_id, weight in u.interactions.items():
-                    normalized_interactions[v_id] = math.sqrt(weight) / total_interactions
-            agent_normalized_weights[u.id] = normalized_interactions
+                    if v_id in id_to_idx:
+                        edges.append((u_idx, id_to_idx[v_id], math.sqrt(weight) / total_interactions))
 
         for _ in range(iterations):
-            new_E = {agent_id: 0.0 for agent_id in self.agents}
-            for u_id, normalized_interactions in agent_normalized_weights.items():
-                if normalized_interactions:
-                    for v_id, normalized_weight in normalized_interactions.items():
-                        # u vouches for v_id
-                        new_E[v_id] += E[u_id] * normalized_weight
+            new_E = [0.0] * num_agents
+            for u_idx, v_idx, weight in edges:
+                new_E[v_idx] += E[u_idx] * weight
 
-            # Normalize to prevent explosion
-            total_E = sum(new_E.values())
+            total_E = sum(new_E)
             if total_E > 0:
-                E = {k: v / total_E * len(self.agents) for k, v in new_E.items()}
+                E = [v / total_E * num_agents for v in new_E]
             else:
                 E = new_E
-        return E
+
+        return {agent_ids[i]: E[i] for i in range(num_agents)}
 
     def calculate_social_connectivity(self):
         """Calculates PageRank-style P(u) for all agents.

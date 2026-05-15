@@ -70,8 +70,8 @@ class TestProposal:
         # Test changing the amount but keeping the same vote
         proposal.cast_vote(agent_id="H_1", amount=200.0, vote=True, current_epoch=5)
 
-        # epoch_staked should NOT update if the vote direction didn't change
-        assert proposal.votes == {"H_1": {"amount": 200.0, "epoch_staked": 2, "vote": True}}
+        # epoch_staked should now track the latest change due to fixed conviction accumulation math
+        assert proposal.votes == {"H_1": {"amount": 200.0, "epoch_staked": 5, "vote": True}}
 
     def test_cast_vote_multiple_agents(self, proposal):
         """
