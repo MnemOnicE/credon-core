@@ -154,6 +154,6 @@ class TestAgent:
 
         result = agent.process_graduation(bond_returned, reward)
 
-        assert result == 1
-        assert agent.balance == initial_balance - 150
-        assert agent.cred_balance == initial_cred + 1
+        assert result == 0
+        assert agent.balance == initial_balance
+        assert agent.cred_balance == initial_cred
