@@ -40,12 +40,33 @@ class Proposal:
             "vote": vote,
         }
 
-    def cast_votes_batch(self, active_agents, vote, current_epoch):
+    def cast_votes_batch(self, active_agents, vote=None, current_epoch=None):
         """
         [EXPLANATORY: cast_votes_batch]
         [IDENTIFIER: cast_votes_batch]
         """
-        updates = {
+        if vote is not None and current_epoch is not None:
+            updates = {
+                agent_id: {
+                    "amount": amount,
+                    "epoch_staked": current_epoch,
+                    "vote": vote,
+                }
+                for agent_id, amount in active_agents
+            }
+        else:
+            # When active_agents is actually a pre-computed updates dictionary
+            updates = active_agents
+        self.votes.update(updates)
+
+    @staticmethod
+    def create_batch_updates(active_agents, vote, current_epoch):
+        """
+        [EXPLANATORY: create_batch_updates]
+        [IDENTIFIER: create_batch_updates]
+        [DIRECTIONAL: val]
+        """
+        return {
             agent_id: {
                 "amount": amount,
                 "epoch_staked": current_epoch,
@@ -53,7 +74,6 @@ class Proposal:
             }
             for agent_id, amount in active_agents
         }
-        self.votes.update(updates)
 
     def update_conviction(self, alpha, t_max, current_epoch):
         """
@@ -435,8 +455,10 @@ class Engine:
             updates_yes = Proposal.create_batch_updates(active_honest, True, self.epoch)
             updates_no = Proposal.create_batch_updates(active_honest, False, self.epoch)
             for p in reasonable_proposals:
+                # Vote yes on reasonable proposals
                 p.cast_votes_batch(updates_yes)
             for p in extreme_proposals:
+                # Vote no on extreme proposals
                 p.cast_votes_batch(updates_no)
 
         # Malicious Agent Behavior

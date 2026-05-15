@@ -58,8 +58,10 @@ def benchmark_honest_voting(engine):
     updates_yes = Proposal.create_batch_updates(active_honest, True, epoch)
     updates_no = Proposal.create_batch_updates(active_honest, False, epoch)
     for p in reasonable_proposals:
+        # Vote yes on reasonable proposals
         p.cast_votes_batch(updates_yes)
     for p in extreme_proposals:
+        # Vote no on extreme proposals
         p.cast_votes_batch(updates_no)
 
 
