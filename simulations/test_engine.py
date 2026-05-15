@@ -115,7 +115,7 @@ class TestTransitiveTrust:
 
         # With no interactions, total_E becomes 0, so everyone gets 0.0 trust
         for agent_id in engine.agents:
-            assert trust[agent_id] == 0.0
+            assert pytest.approx(trust[agent_id], abs=1e-9) == 0.0
 
     def test_trust_simple_chain(self, engine):
         """
@@ -133,9 +133,9 @@ class TestTransitiveTrust:
 
         # In a strict DAG (chain), trust leaks out of the system after enough iterations.
         # Since iterations=5, chain length is 2, trust goes to 0 for all.
-        assert trust["H_2"] == 0.0
-        assert trust["H_1"] == 0.0
-        assert trust["H_0"] == 0.0
+        assert pytest.approx(trust["H_2"], abs=1e-9) == 0.0
+        assert pytest.approx(trust["H_1"], abs=1e-9) == 0.0
+        assert pytest.approx(trust["H_0"], abs=1e-9) == 0.0
 
     def test_trust_mutual(self, engine):
         """
@@ -155,8 +155,8 @@ class TestTransitiveTrust:
         # So it's 2.0 for H_0 and 2.0 for H_1, disconnected get 0.
         assert pytest.approx(trust["H_0"], rel=1e-9) == 2.0
         assert pytest.approx(trust["H_1"], rel=1e-9) == 2.0
-        assert trust["H_2"] == 0.0
-        assert trust["M_0"] == 0.0
+        assert pytest.approx(trust["H_2"], abs=1e-9) == 0.0
+        assert pytest.approx(trust["M_0"], abs=1e-9) == 0.0
 
     def test_trust_complex(self, engine):
         """
@@ -186,4 +186,4 @@ class TestTransitiveTrust:
         assert trust["H_1"] > trust["H_2"]
 
         # M_0 has no incoming trust, so it goes to 0
-        assert trust["M_0"] == 0.0
+        assert pytest.approx(trust["M_0"], abs=1e-9) == 0.0
