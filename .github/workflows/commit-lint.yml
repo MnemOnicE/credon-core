@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: "npm"
+
       - name: Install Commitlint
         run: npm install -g @commitlint/cli @commitlint/config-conventional
       - name: Validate PR Commits
