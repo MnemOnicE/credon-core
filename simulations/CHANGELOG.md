@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/MnemOnicE/credon-core/compare/credon-simulations-v1.2.0...credon-simulations-v1.2.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **ci:** update AI PR reviewer action and resolve batch updates bug ([77a3c5a](https://github.com/MnemOnicE/credon-core/commit/77a3c5a498798565bdee5921f4d02f1c2134a0ee))
+* **ci:** update AI PR reviewer action and resolve batch updates bug ([5d5eb62](https://github.com/MnemOnicE/credon-core/commit/5d5eb62c1397a2b7de322ba009324fa90f081da4))
+
 ## [1.2.0](https://github.com/MnemOnicE/credon-core/compare/credon-simulations-v1.1.0...credon-simulations-v1.2.0) (2026-04-02)
 
 
