@@ -466,7 +466,9 @@ class Engine:
 
         # Malicious agents vote
         for p in target_malicious:
-            for m_id, balance in active_malicious:
+            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for m_id, balance in active_malicious})
+        for p in other_malicious:
+            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for m_id, balance in active_malicious})
                 p.cast_vote(m_id, balance, True, self.epoch)
         for p in other_malicious:
             for m_id, balance in active_malicious:
