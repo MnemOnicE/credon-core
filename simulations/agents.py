@@ -74,6 +74,8 @@ class Agent:
         [IDENTIFIER: process_graduation]
         [DIRECTIONAL: val]
         """
+        if bond_returned < 0 or reward < 0:
+            return 0
         self.balance += bond_returned + reward
         self.cred_balance += 1  # Mint 1 $CRED for verified activity
         return 1
