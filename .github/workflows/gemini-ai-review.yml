@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Context7 Gemini Architecture Review
         uses: coderabbitai/ai-pr-reviewer@latest
