@@ -88,10 +88,12 @@ def benchmark_malicious_voting(engine):
     ]
 
     # Malicious agents vote
+    updates_yes = Proposal.create_batch_updates(active_malicious, True, epoch)
+    updates_no = Proposal.create_batch_updates(active_malicious, False, epoch)
     for p in target_malicious:
-        p.cast_votes_batch(active_malicious, True, epoch)
+        p.cast_votes_batch(updates_yes)
     for p in other_malicious:
-        p.cast_votes_batch(active_malicious, False, epoch)
+        p.cast_votes_batch(updates_no)
 
 
 def run_benchmark():
