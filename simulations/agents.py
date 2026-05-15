@@ -72,9 +72,11 @@ class Agent:
         """Receives back their bond + the Integrity Reward R.
         [EXPLANATORY: process_graduation]
         [IDENTIFIER: process_graduation]
+        [DIRECTIONAL: val]
         """
         self.balance += bond_returned + reward
         self.cred_balance += 1  # Mint 1 $CRED for verified activity
+        return 1
 
     def execute_default(self, loan_record):
         """Malicious agent defaults, keeping the loan L but losing bonds.

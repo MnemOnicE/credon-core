@@ -109,3 +109,51 @@ class TestAgent:
 
         assert result == 0
         assert agent.balance == initial_balance
+
+    def test_process_graduation_success(self, agent):
+        """
+        [EXPLANATORY: test_process_graduation_success]
+        [IDENTIFIER: test_process_graduation_success]
+        """
+        initial_balance = agent.balance
+        initial_cred = agent.cred_balance
+        bond_returned = 500
+        reward = 75
+
+        result = agent.process_graduation(bond_returned, reward)
+
+        assert result == 1
+        assert agent.balance == initial_balance + bond_returned + reward
+        assert agent.cred_balance == initial_cred + 1
+
+    def test_process_graduation_zero_values(self, agent):
+        """
+        [EXPLANATORY: test_process_graduation_zero_values]
+        [IDENTIFIER: test_process_graduation_zero_values]
+        """
+        initial_balance = agent.balance
+        initial_cred = agent.cred_balance
+        bond_returned = 0
+        reward = 0
+
+        result = agent.process_graduation(bond_returned, reward)
+
+        assert result == 1
+        assert agent.balance == initial_balance
+        assert agent.cred_balance == initial_cred + 1
+
+    def test_process_graduation_negative_values(self, agent):
+        """
+        [EXPLANATORY: test_process_graduation_negative_values]
+        [IDENTIFIER: test_process_graduation_negative_values]
+        """
+        initial_balance = agent.balance
+        initial_cred = agent.cred_balance
+        bond_returned = -100
+        reward = -50
+
+        result = agent.process_graduation(bond_returned, reward)
+
+        assert result == 1
+        assert agent.balance == initial_balance - 150
+        assert agent.cred_balance == initial_cred + 1
