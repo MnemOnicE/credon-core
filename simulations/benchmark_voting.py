@@ -4,7 +4,6 @@
 """
 
 import timeit
-import random
 import math
 from simulations.engine import Engine, Proposal
 
@@ -22,7 +21,7 @@ def setup_benchmark(num_honest=500, num_malicious=100, num_proposals=50):
 
     # Create many proposals
     for i in range(num_proposals):
-        target_rho = random.uniform(0.01, 0.50)
+        target_rho = engine.rng.uniform(0.01, 0.50)
         p = Proposal(engine.next_proposal_id, "H_0", target_rho, engine.epoch, is_core=True)
         engine.proposals.append(p)
         engine.next_proposal_id += 1
