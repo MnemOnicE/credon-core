@@ -83,8 +83,6 @@ class Proposal:
 
         return v_t_yes, v_t_no, total_staked_in_vote
 
-        return v_t_yes, v_t_no, total_staked_in_vote
-
 
 class Engine:
     """
