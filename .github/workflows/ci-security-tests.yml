@@ -13,6 +13,9 @@ on:
       - 'simulations/**'
       - 'contracts/**'
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,6 +25,9 @@ jobs:
     name: Python Engine Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
