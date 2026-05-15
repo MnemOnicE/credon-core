@@ -441,6 +441,15 @@ class Engine:
                 (a_id, self.agents[a_id].cred_balance) for a_id in honest_ids if self.agents[a_id].cred_balance > 0
             ]
 
+            # Honest agents vote
+            for p in reasonable_proposals:
+                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for a_id, balance in active_honest})
+            for p in extreme_proposals:
+                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for a_id, balance in active_honest})
+                    p.cast_vote(a_id, balance, True, self.epoch)
+            for p in extreme_proposals:
+                for a_id, balance in active_honest:
+                    p.cast_vote(a_id, balance, False, self.epoch)
             updates_yes = Proposal.create_batch_updates(active_honest, True, self.epoch)
             updates_no = Proposal.create_batch_updates(active_honest, False, self.epoch)
             for p in reasonable_proposals:
@@ -486,6 +495,15 @@ class Engine:
             (m_id, self.agents[m_id].cred_balance) for m_id in malicious_ids if self.agents[m_id].cred_balance > 0
         ]
 
+        # Malicious agents vote
+        for p in target_malicious:
+            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for m_id, balance in active_malicious})
+        for p in other_malicious:
+            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for m_id, balance in active_malicious})
+                p.cast_vote(m_id, balance, True, self.epoch)
+        for p in other_malicious:
+            for m_id, balance in active_malicious:
+                p.cast_vote(m_id, balance, False, self.epoch)
         updates_yes = Proposal.create_batch_updates(active_malicious, True, self.epoch)
         updates_no = Proposal.create_batch_updates(active_malicious, False, self.epoch)
         for p in target_malicious:
