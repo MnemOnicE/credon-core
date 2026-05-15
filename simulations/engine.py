@@ -480,10 +480,12 @@ class Engine:
         ]
 
         # Malicious agents vote
+        updates_yes = Proposal.create_batch_updates(active_malicious, True, self.epoch)
+        updates_no = Proposal.create_batch_updates(active_malicious, False, self.epoch)
         for p in target_malicious:
-            p.cast_votes_batch(active_malicious, True, self.epoch)
+            p.cast_votes_batch(updates_yes)
         for p in other_malicious:
-            p.cast_votes_batch(active_malicious, False, self.epoch)
+            p.cast_votes_batch(updates_no)
 
         # 3.6 Tally Votes and Update Status
         for p in active_proposals:
