@@ -42,28 +42,6 @@ class Proposal:
 
     @staticmethod
     def create_batch_updates(active_agents, vote, current_epoch):
-    def cast_votes_batch(self, active_agents, vote=None, current_epoch=None):
-        """
-        [EXPLANATORY: create_batch_updates]
-        [IDENTIFIER: create_batch_updates]
-        [DIRECTIONAL: val]
-        """
-        if vote is not None and current_epoch is not None:
-            updates = {
-                agent_id: {
-                    "amount": amount,
-                    "epoch_staked": current_epoch,
-                    "vote": vote,
-                }
-                for agent_id, amount in active_agents
-            }
-        else:
-            # When active_agents is actually a pre-computed updates dictionary
-            updates = active_agents
-        self.votes.update(updates)
-
-    @staticmethod
-    def create_batch_updates(active_agents, vote, current_epoch):
         """
         [EXPLANATORY: create_batch_updates]
         [IDENTIFIER: create_batch_updates]
@@ -135,291 +113,276 @@ class Engine:
         # ---------------- Monetary Policy Parameters ----------------
         self.R_res = 0.0  # Rewards Reservoir
         self.circulating_supply = 0.0
-        self.rho = 0.05
-        self.M_EPOCH_CIRCULATING_SUPPLY_CAP = 0.01  # Reward Release Rate (5%)
+        self.rho = 0.10  # Initial Inflation target per epoch
+        self.max_inflation = 0.50
+        self.max_reservoir_multiplier = 5.0
+        self.max_mint = 50000
 
         # ---------------- Governance Parameters ----------------
         self.proposals = []
         self.next_proposal_id = 1
-        self.alpha_conviction = 0.8
-        self.t_max = 5
-        self.core_quorum = 0.25
-        self.core_approval = 0.66
-        self.minor_quorum = 0.10
-        self.minor_approval = 0.51
+        self.alpha_conviction = 0.9  # Decay factor a, so a=0.9 means 10% decay per epoch
+        self.t_max = 10  # Used in Aragon formulas, here conceptual (epochs to reach 99% max conviction = ~44 epochs)
 
-        # ---------------- TrustLedger Math Weights ----------------
-        self.alpha = 0.4  # Transitive Trust (E) weight
-        self.beta = 0.4  # Social Connectivity (P) weight
-        self.gamma = 0.2  # Time-Weighting (W) weight
-        self.ema_decay = 0.1  # Decay for Time-Weighting (W) EMA
-
-        # ---------------- Simulation State ----------------
-        self.epoch = 0
+        # ---------------- Trust & Network State ----------------
         self.agents = {}
-
-        # Initialize agents
-        for i in range(num_honest):
-            agent_id = f"H_{i}"
-            self.agents[agent_id] = Agent(agent_id, is_malicious=False, b=self.B, l_amount=self.L, r=self.R)
-            self.circulating_supply += self.agents[agent_id].balance
-
-        for i in range(num_malicious):
-            agent_id = f"M_{i}"
-            # Malicious attacker orchestrates Sybils
-            self.agents[agent_id] = Agent(agent_id, is_malicious=True, b=self.B, l_amount=self.L, r=self.R)
-            self.circulating_supply += self.agents[agent_id].balance
-
-        # Track Time-Weighted Conviction W for all agents using EMA
-        self.W = {agent_id: 0.0 for agent_id in self.agents}
-        # Track past epoch verified activity for EMA calculation
-        self.recent_activity = {agent_id: 0 for agent_id in self.agents}
-
-        # Track initial balances to compute ROI later
-        self.initial_balances = {a_id: self.agents[a_id].balance for a_id in self.agents}
+        self.initial_balances = {}
+        self.epoch = 0
         self.history = []
 
-        # Global Loan Registry
-        self.active_loans = []
-
-        # Initialize cryptographically secure random number generator
         self.rng = random.SystemRandom()
 
-        # Pre-compute static agent groups for performance optimization
-        self.honest_ids = []
-        self.malicious_ids = []
-        for a_id, agent in self.agents.items():
-            if agent.is_malicious:
-                self.malicious_ids.append(a_id)
-            else:
-                self.honest_ids.append(a_id)
+        # Initialize Honest Agents
+        self.honest_ids = [f"H_{i}" for i in range(num_honest)]
+        for h_id in self.honest_ids:
+            self.agents[h_id] = Agent(h_id, initial_balance=2000)
+            self.initial_balances[h_id] = 2000
 
-    # ---------------- TrustLedger Functions ----------------
-    def calculate_transitive_trust(self):
-        """Calculates EigenTrust-style E(u) for all agents using integer-based arrays.
-        [EXPLANATORY: calculate_transitive_trust]
-        [IDENTIFIER: calculate_transitive_trust]
-        [DIRECTIONAL: val]
-        """
-        agent_ids = list(self.agents.keys())
-        id_to_idx = {agent_id: i for i, agent_id in enumerate(agent_ids)}
-        num_agents = len(agent_ids)
+        # Initialize Malicious Agents
+        self.malicious_ids = [f"M_{i}" for i in range(num_malicious)]
+        for m_id in self.malicious_ids:
+            self.agents[m_id] = Agent(m_id, initial_balance=2000)
+            self.initial_balances[m_id] = 2000
 
-        E = [1.0] * num_agents
-        iterations = 5
-
-        # Flatten edges into (u_idx, v_idx, weight)
-        edges = []
-        for u_id, u in self.agents.items():
-            u_idx = id_to_idx[u_id]
-            total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
-            if total_interactions > 0:
-                for v_id, weight in u.interactions.items():
-                    if v_id in id_to_idx:
-                        edges.append((u_idx, id_to_idx[v_id], math.sqrt(weight) / total_interactions))
-
-        for _ in range(iterations):
-            new_E = [0.0] * num_agents
-            for u_idx, v_idx, weight in edges:
-                new_E[v_idx] += E[u_idx] * weight
-
-            total_E = sum(new_E)
-            if total_E > 0:
-                E = [v / total_E * num_agents for v in new_E]
-            else:
-                E = new_E
-
-        return {agent_ids[i]: E[i] for i in range(num_agents)}
-
-    def calculate_social_connectivity(self):
-        """Calculates PageRank-style P(u) for all agents.
-        [EXPLANATORY: calculate_social_connectivity]
-        [IDENTIFIER: calculate_social_connectivity]
-        [DIRECTIONAL: val]
-        """
-        num_agents = len(self.agents)
-        P = {agent_id: 1.0 / num_agents for agent_id in self.agents}
-        d = 0.85  # Damping factor
-        iterations = 10
-
-        # Pre-compute normalized interaction weights to avoid redundant out_degree calculations
-        agent_normalized_weights = {}
-        sink_ids = []
-        for u in self.agents.values():
-            out_degree = sum(u.interactions.values())
-            if out_degree > 0:
-                normalized_interactions = {v_id: (weight / out_degree) for v_id, weight in u.interactions.items()}
-                agent_normalized_weights[u.id] = normalized_interactions
-            else:
-                sink_ids.append(u.id)
-
-        for _ in range(iterations):
-            sink_contribution = 0.0
-            new_P = {agent_id: (1.0 - d) / num_agents for agent_id in self.agents}
-
-            for u_id, normalized_interactions in agent_normalized_weights.items():
-                p_u_d = P[u_id] * d
-                for v_id, norm_weight in normalized_interactions.items():
-                    new_P[v_id] += p_u_d * norm_weight
-
-            for u_id in sink_ids:
-                sink_contribution += d * (P[u_id] / num_agents)
-
-            if sink_contribution > 0:
-                for v_id in self.agents:
-                    new_P[v_id] += sink_contribution
-            P = new_P
-
-        # Scale to meaningful values roughly matching E
-        return {k: v * num_agents for k, v in P.items()}
-
-    def update_time_weighting(self):
-        """Calculates W(u, t) using discrete EMA of verified recent activity.
-        [EXPLANATORY: update_time_weighting]
-        [IDENTIFIER: update_time_weighting]
-        [DIRECTIONAL: val]
-        """
-        for agent_id in self.agents:
-            activity = self.recent_activity[agent_id]
-            # EMA = (Value_today * decay) + (EMA_yesterday * (1 - decay))
-            self.W[agent_id] = (activity * self.ema_decay) + (self.W[agent_id] * (1 - self.ema_decay))
-            self.recent_activity[agent_id] = 0  # Reset for next epoch
-        return self.W
-
-    def calculate_trust_scores(self):
-        r"""T(u, t) = \alpha E(u) + \beta P(u) + \gamma W(u, t)
-        [EXPLANATORY: calculate_trust_scores]
-        [IDENTIFIER: calculate_trust_scores]
-        [DIRECTIONAL: val]
-        """
-        E = self.calculate_transitive_trust()
-        P = self.calculate_social_connectivity()
-        W = self.update_time_weighting()
-
-        T = {}
-        for a in self.agents:
-            T[a] = (self.alpha * E[a]) + (self.beta * P[a]) + (self.gamma * W[a])
-        return T
-
-    # ---------------- Simulation Step ----------------
     def _simulate_honest_agents_behavior(self) -> int:
         """
-        [EXPLANATORY: Simulates interactions and actions for all honest agents.]
-        [IDENTIFIER: engine_sim_honest]
+        [EXPLANATORY: Simulates interactions for honest agents, returning epoch volume.]
+        [IDENTIFIER: engine_simulate_honest]
         [DIRECTIONAL: val]
         """
         epoch_repaid_principal = 0
         honest_ids = self.honest_ids
-        for a_id in honest_ids:
-            sponsor = self.agents[a_id]
-            # Interact with a few other honest nodes randomly to build the social graph
-            other_honest_ids = [hid for hid in honest_ids if hid != a_id]
-            if other_honest_ids:
-                friends = self.rng.sample(other_honest_ids, min(3, len(other_honest_ids)))
-                for friend in friends:
-                    sponsor.interact_with(friend, self.L)
 
-            # Try to sponsor a candidate
-            if sponsor.balance >= self.B:
-                # Random honest candidate
-                candidate_id = self.rng.choice(honest_ids)
-                candidate = self.agents[candidate_id]
+        # 1. Simulate Agent Interactions (P2P verifiable loans)
+        # Honest agents randomly pair up, sponsor each other, take loans, and repay them.
+        for h_id in honest_ids:
+            agent = self.agents[h_id]
+            # Honest agent tries to find a random sponsor
+            potential_sponsors = [s_id for s_id in honest_ids if s_id != h_id]
+            if not potential_sponsors:
+                continue
 
-                # Check candidate bond
-                if candidate.post_candidate_bond() == self.B:
-                    # Sponsor posts bond
-                    loan_record = sponsor.try_sponsor(candidate_id, self.epoch)
-                    if loan_record:
-                        # Give loan L to candidate
-                        candidate.receive_loan(self.L)
-                        self.active_loans.append(loan_record)
+            sponsor_id = self.rng.choice(potential_sponsors)
+            sponsor = self.agents[sponsor_id]
 
-                        # Candidate repays loan L
-                        if candidate.repay_loan(self.L, loan_record):
-                            epoch_repaid_principal += self.L
-                            # Verified activity goes up
-                            self.recent_activity[sponsor.id] += 1
-                            self.recent_activity[candidate.id] += 1
+            # Sponsor vouches for Agent
+            if sponsor.try_sponsor(agent.id, self.B):
+                # Agent posts candidate bond
+                if agent.post_candidate_bond(self.B):
+                    # Agent gets loan L
+                    agent.balance += self.L
+                    # Agent interacts off-chain, succeeds, repays loan
+                    agent.repay_loan(self.L)
+                    epoch_repaid_principal += self.L
+                    # Record positive interaction (Sponsor -> Candidate)
+                    self.agents[agent.id].record_interaction(sponsor.id, True)
 
-                            # Both get bonds back. Reward R is minted later, let's distribute it here
-                            sponsor.process_graduation(self.B, self.R)
-                            candidate.process_graduation(self.B, self.R)
-                            self.circulating_supply += self.R * 2
         return epoch_repaid_principal
 
     def _simulate_malicious_agents_behavior(self):
         """
-        [EXPLANATORY: Simulates sybil attacks and malicious behavior for attackers.]
-        [IDENTIFIER: engine_sim_malicious]
+        [EXPLANATORY: Simulates interactions for malicious agents.]
+        [IDENTIFIER: engine_simulate_malicious]
         """
         malicious_ids = self.malicious_ids
+        honest_ids = self.honest_ids
+
+        # Malicious agents try to trick honest agents into sponsoring them, then default
+        # or they sponsor each other to build fake trust, then default on an external victim
         for m_id in malicious_ids:
             attacker = self.agents[m_id]
-            # Sybil graph: attackers only interact with themselves (link farms)
-            for other_m in malicious_ids:
-                if other_m != m_id:
-                    attacker.interact_with(other_m, self.L * 5)  # High internal interaction
+            # Attacker strategy: Try to get an honest sponsor if possible
+            potential_victims = [h_id for h_id in honest_ids if self.agents[h_id].balance >= self.B]
 
-            # Attacker controls Sponsor and Candidate (which is another Sybil or themselves)
-            if attacker.balance >= (self.B * 2):  # Needs 2B
-                fake_candidate_id = m_id  # Themselves for simplicity
+            if potential_victims:
+                victim_id = self.rng.choice(potential_victims)
+                victim = self.agents[victim_id]
+                if victim.try_sponsor(attacker.id, self.B):
+                    if attacker.post_candidate_bond(self.B):
+                        # Attacker gets loan L
+                        attacker.balance += self.L
+                        # Attacker DEFAULTS.
+                        # Both bonds (victim's B_s and attacker's B_c) are slashed and sent to dead address
+                        # The loan L is kept by the attacker.
+                        victim.slashed_count += 1
+                        # Record negative interaction (Victim -> Attacker)
+                        self.agents[attacker.id].record_interaction(victim.id, False)
+            else:
+                # If no honest victims, sybil ring: Malicious sponsor Malicious
+                # They don't default here because they would just burn their own money.
+                # They do this to build fake transitive trust.
+                sybil_sponsors = [
+                    s_id for s_id in malicious_ids if s_id != m_id and self.agents[s_id].balance >= self.B
+                ]
+                if sybil_sponsors:
+                    s_id = self.rng.choice(sybil_sponsors)
+                    sponsor = self.agents[s_id]
+                    if sponsor.try_sponsor(attacker.id, self.B):
+                        if attacker.post_candidate_bond(self.B):
+                            attacker.balance += self.L
+                            attacker.repay_loan(self.L)
+                            self.agents[attacker.id].record_interaction(sponsor.id, True)
 
-                # Post both bonds
-                b_c = attacker.post_candidate_bond()
-                loan_record = attacker.try_sponsor(fake_candidate_id, self.epoch)
-
-                if loan_record and b_c == self.B:
-                    attacker.receive_loan(self.L)
-                    self.active_loans.append(loan_record)
-
-                    # Sybil ATTACK: Default to steal L!
-                    attacker.execute_default(loan_record)
-
-                    self.circulating_supply -= self.B * 2
-                    self.circulating_supply += self.L
-
-    def _calculate_monetary_policy(self, epoch_repaid_principal: int) -> tuple[float, float, dict]:
+    def _calculate_monetary_policy(self, epoch_repaid_principal: int) -> tuple[float, int, dict]:
         """
-        [EXPLANATORY: Calculates trust scores and updates monetary policy metrics.]
-        [IDENTIFIER: engine_calc_monetary_policy]
+        [EXPLANATORY: Calculates transitive trust, graduation rewards, and minting parameters.]
+        [IDENTIFIER: engine_monetary_policy]
         [DIRECTIONAL: val]
         """
-        T_scores = self.calculate_trust_scores()
+        # 2. Transitive Trust & Graduation (Monetary Policy)
+        # We need a global trust score to calculate the Network Integrity Factor (I_n).
+        # We simulate the EigenTrust/PageRank off-chain rollup computation here.
 
-        # Calculate Delta R_res (verified volume sub-linear throttle)
-        delta_r = math.sqrt(epoch_repaid_principal)
-        self.R_res += delta_r
+        # Build interaction graph
+        interactions = []
+        for a in self.agents.values():
+            for p, success in a.interactions:
+                weight = 1.0 if success else -1.0
+                interactions.append((p, a.id, weight))
 
-        # Calculate Minted amount
-        M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
+        # Calculate Trust
+        T_scores = self.calculate_transitive_trust(self.agents.keys(), interactions)
 
-        # Calculate inflation rate
-        inflation_rate = (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
+        # Calculate Network Integrity Factor I_n
+        total_positive_trust = sum(t for t in T_scores.values() if t > 0)
+        I_n = total_positive_trust / len(self.agents) if self.agents else 0.0
+        # Normalize I_n to be roughly between 0 and 1.
+        # Max positive trust per agent is ~1 if well connected.
+        I_n = min(1.0, max(0.0, I_n))
+
+        # Core Monetary Policy Function: Calculate M_epoch
+        # M_epoch = min(rho * C_s * I_n, M_max)
+        inflation_rate = self.rho * I_n
+        M_epoch = int(self.circulating_supply * inflation_rate)
+        if self.circulating_supply == 0:
+            M_epoch = int(100000 * inflation_rate)  # Base supply if 0
+
+        M_epoch = min(M_epoch, self.max_mint)
+
+        # Distribute M_epoch to Rewards Reservoir
+        # R_res_max = max_multiplier * sum(active_bonds)
+        active_bonds = sum(self.B for a in self.agents.values() if a.bond_active)
+        R_res_max = self.max_reservoir_multiplier * active_bonds
+
+        if self.R_res + M_epoch > R_res_max:
+            # Throttle minting
+            M_epoch = max(0, R_res_max - self.R_res)
+
+        self.R_res += M_epoch
+
+        # Agent Graduation
+        # Agents who successfully repaid loans get their bonds back + Reward R + $CRED
+        for a_id, agent in self.agents.items():
+            # In actual implementation, verification happens via SMT proof
+            if agent.repaid_this_epoch:
+                agent.balance += self.B  # Return candidate bond
+                agent.balance += self.R  # Pay Integrity Reward
+                agent.process_graduation()  # Mint $CRED Sbt SMT node
+                agent.repaid_this_epoch = False
+                agent.bond_active = False
+
+                # Return Sponsor Bond
+                if agent.current_sponsor and agent.current_sponsor in self.agents:
+                    sp = self.agents[agent.current_sponsor]
+                    sp.balance += self.B
+                    sp.bond_active = False
+                agent.current_sponsor = None
+
         return inflation_rate, M_epoch, T_scores
 
-    def _process_governance_proposals(self, inflation_rate: float, total_cred: int, active_proposals: list):  # noqa: C901
+    def calculate_transitive_trust(self, agent_ids, interactions, iterations=10, damping_factor=0.85):
         """
-        [EXPLANATORY: Agents create and vote on governance proposals.]
-        [IDENTIFIER: engine_process_gov_proposals]
+        [EXPLANATORY: calculate_transitive_trust]
+        [IDENTIFIER: calculate_transitive_trust]
+        [DIRECTIONAL: val]
+        """
+        id_list = list(agent_ids)
+        num_agents = len(id_list)
+        if num_agents == 0:
+            return {}
+
+        # 1. Create a mapping from agent_id to an integer index
+        id_to_idx = {agent_id: idx for idx, agent_id in enumerate(id_list)}
+
+        # 2. Build the adjacency list using indices
+        #    out_links[u_idx] = [(v_idx, weight), ...]
+        out_links = [[] for _ in range(num_agents)]
+        for u, v, w in interactions:
+            if u in id_to_idx and v in id_to_idx:
+                u_idx = id_to_idx[u]
+                v_idx = id_to_idx[v]
+                out_links[u_idx].append((v_idx, w))
+
+        # 3. Initialize scores and out_degrees
+        scores = [1.0 / num_agents] * num_agents
+        out_degrees = [0.0] * num_agents
+
+        for i in range(num_agents):
+            degree = sum(max(0, w) for _, w in out_links[i])
+            out_degrees[i] = degree
+
+        # 4. Flatten the graph into a list of pre-calculated normalized edges
+        #    edges = [(u_idx, v_idx, normalized_weight), ...]
+        edges = []
+        for u_idx in range(num_agents):
+            degree = out_degrees[u_idx]
+            if degree > 0:
+                for v_idx, w in out_links[u_idx]:
+                    if w > 0:
+                        edges.append((u_idx, v_idx, w / degree))
+
+        # Find sinks (indices with no out_degrees)
+        sinks = [i for i, degree in enumerate(out_degrees) if degree == 0]
+
+        # 5. Iterative power update loop
+        base_score = (1.0 - damping_factor) / num_agents
+        for _ in range(iterations):
+            new_scores = [base_score] * num_agents
+
+            # Add contributions from sinks
+            sink_contrib = sum(scores[s] for s in sinks)
+            if sink_contrib > 0:
+                sink_share = (damping_factor * sink_contrib) / num_agents
+                for i in range(num_agents):
+                    new_scores[i] += sink_share
+
+            # Accumulate trust flowing through edges
+            for u_idx, v_idx, norm_w in edges:
+                new_scores[v_idx] += damping_factor * scores[u_idx] * norm_w
+
+            scores = new_scores
+
+        # 6. Map back to agent_ids
+        return {id_list[idx]: scores[idx] for idx in range(num_agents)}
+
+    def _process_governance_proposals(self, inflation_rate: float, total_cred: int, active_proposals: list):
+        """
+        [EXPLANATORY: Processes proposal creation and active voting behavior.]
+        [IDENTIFIER: engine_governance]
         """
         honest_ids = self.honest_ids
         malicious_ids = self.malicious_ids
 
-        # Honest Agent Behavior
-        if total_cred > 0:
-            target_rho = None
-            if inflation_rate > 0.02:
-                target_rho = max(0.01, self.rho - 0.01)
-            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
-                target_rho = min(0.50, self.rho + 0.01)
+        # 3. Aragon Conviction Voting (Governance Policy)
+        # Agents use $CRED to vote on adjusting self.rho (Inflation target)
 
-            honest_proposal = None
-            if target_rho is not None:
-                honest_proposal = next(
-                    (p for p in active_proposals if math.isclose(p.target_rho, target_rho, abs_tol=1e-9)), None
-                )
+        # Honest Agent Behavior
+        # If inflation > 0.05 (too high), propose to lower rho.
+        # If inflation < 0.01 (too low), propose to raise rho.
+        target_rho = None
+        if inflation_rate > 0.05:
+            target_rho = max(0.01, self.rho - 0.01)
+        elif inflation_rate < 0.01:
+            target_rho = min(self.max_inflation, self.rho + 0.01)
+
+        honest_proposal = None
+        if target_rho is not None:
+            honest_proposal = next(
+                (p for p in active_proposals if math.isclose(p.target_rho, target_rho, abs_tol=1e-9)), None
+            )
 
             if target_rho is not None and honest_proposal is None:
+                # Find an honest agent with $CRED to propose
                 proposer = next(
                     (self.agents[a_id] for a_id in honest_ids if self.agents[a_id].cred_balance > 0),
                     None,
@@ -437,6 +400,7 @@ class Engine:
                     active_proposals.append(new_prop)
                     honest_proposal = new_prop
 
+            # Categorize proposals once for efficiency
             reasonable_proposals = []
             extreme_proposals = []
             for p in active_proposals:
@@ -445,35 +409,28 @@ class Engine:
                 else:
                     extreme_proposals.append(p)
 
+            # Pre-filter agents with balance to avoid redundant dictionary lookups
             active_honest = [
                 (a_id, self.agents[a_id].cred_balance) for a_id in honest_ids if self.agents[a_id].cred_balance > 0
             ]
 
             # Honest agents vote
-            for p in reasonable_proposals:
-                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for a_id, balance in active_honest})
-            for p in extreme_proposals:
-                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for a_id, balance in active_honest})
-                    p.cast_vote(a_id, balance, True, self.epoch)
-            for p in extreme_proposals:
-                for a_id, balance in active_honest:
-                    p.cast_vote(a_id, balance, False, self.epoch)
             updates_yes = Proposal.create_batch_updates(active_honest, True, self.epoch)
             updates_no = Proposal.create_batch_updates(active_honest, False, self.epoch)
             for p in reasonable_proposals:
-                # Vote yes on reasonable proposals
                 p.cast_votes_batch(updates_yes)
             for p in extreme_proposals:
-                # Vote no on extreme proposals
                 p.cast_votes_batch(updates_no)
 
         # Malicious Agent Behavior
+        # They always want to maximize rho to trigger hyperinflation
         malicious_target_rho = 0.50
         malicious_proposal = next(
             (p for p in active_proposals if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9)), None
         )
 
         if malicious_proposal is None and malicious_ids:
+            # Malicious agent tries to propose if they have $CRED (unlikely if they default)
             m_proposer = next(
                 (self.agents[m_id] for m_id in malicious_ids if self.agents[m_id].cred_balance > 0),
                 None,
@@ -491,6 +448,7 @@ class Engine:
                 active_proposals.append(new_prop)
                 malicious_proposal = new_prop
 
+        # Categorize proposals for malicious agents
         target_malicious = []
         other_malicious = []
         for p in active_proposals:
@@ -499,19 +457,12 @@ class Engine:
             else:
                 other_malicious.append(p)
 
+        # Pre-filter malicious agents with balance
         active_malicious = [
             (m_id, self.agents[m_id].cred_balance) for m_id in malicious_ids if self.agents[m_id].cred_balance > 0
         ]
 
         # Malicious agents vote
-        for p in target_malicious:
-            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for m_id, balance in active_malicious})
-        for p in other_malicious:
-            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for m_id, balance in active_malicious})
-                p.cast_vote(m_id, balance, True, self.epoch)
-        for p in other_malicious:
-            for m_id, balance in active_malicious:
-                p.cast_vote(m_id, balance, False, self.epoch)
         updates_yes = Proposal.create_batch_updates(active_malicious, True, self.epoch)
         updates_no = Proposal.create_batch_updates(active_malicious, False, self.epoch)
         for p in target_malicious:
@@ -526,13 +477,24 @@ class Engine:
         """
         for p in active_proposals:
             if p.is_core:
+                # Update conviction y_t
                 _, _, _ = p.update_conviction(self.alpha_conviction, self.t_max, self.epoch)
 
-                max_conviction = total_cred * 1.0
+                # Check if conviction threshold is met
+                # Threshold: 20% of maximum theoretical network conviction
+                max_conviction = total_cred * 1.0  # multiplier maxes at 1.0
+                conviction_threshold = 0.20 * max_conviction
+
+                # For continuous voting, we need to compare y_t to something stable or max possible.
+                # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
+                # For this simulation, max steady state conviction = total_cred / (1 - alpha_conviction).
                 steady_state_max = (
                     max_conviction / (1 - self.alpha_conviction) if self.alpha_conviction < 1 else max_conviction
                 )
                 conviction_threshold = 0.20 * steady_state_max
+
+                # Quorum check (just simple check if total votes > quorum)
+                # Note: Conviction voting usually handles quorum implicitly by requiring enough y_t
 
                 if p.y_t_yes > conviction_threshold and p.y_t_yes > p.y_t_no:
                     self.rho = p.target_rho
@@ -542,12 +504,17 @@ class Engine:
                     p.status = "rejected"
                     print(f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction.")
             else:
+                # Minor proposal - Discrete voting with dynamic quorums
+                # Get actual time-weighted voting power V_t, and total raw staked tokens.
                 v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
 
+                # Check Quorum (total actual tokens staked regardless of time weight)
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
+                    # Check Approval
                     total_v = v_t_yes + v_t_no
                     if total_v > 0:
                         if (v_t_yes / total_v) >= self.minor_approval:
+                            # Execute minor proposal (for this sim, just marking it done)
                             p.status = "executed"
                             print(f"-> Governance: Minor Proposal {p.id} executed!")
                         else:
@@ -564,17 +531,23 @@ class Engine:
         honest_ids = self.honest_ids
         malicious_ids = self.malicious_ids
 
+        # 4. Expected Value / ROI Telemetry Math
+        # EV_honest = (p_success * R) - ((1 - p_success) * B)
+        # We assume p_success based on the TrustLedger is very high. Say p_success = 0.95
         p_success = 0.95
         ev_honest = (p_success * self.R) - ((1.0 - p_success) * self.B)
+
+        # EV_attacker = L - 2B
         ev_attacker = self.L - (2 * self.B)
 
+        # Calculate actual average ROI
         h_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in honest_ids)
         avg_h_roi = h_roi_total / len(honest_ids) if honest_ids else 0
 
         m_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in malicious_ids)
         avg_m_roi = m_roi_total / len(malicious_ids) if malicious_ids else 0
 
-        print(f"\n=== EPOCH {self.epoch} SUMMARY ===")
+        print(f"\n=== EPOCH {self.epoch} === SUMMARY ===")
         print(f"Epoch Verified Volume (Repaid L): {epoch_repaid_principal}")
         print(f"Rewards Reservoir R_res (Locked):  {self.R_res:.2f} CRE")
         print(f"Circulating Supply:              {self.circulating_supply:.2f} CRE")
@@ -587,11 +560,12 @@ class Engine:
         for p in active_proposals:
             print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
 
+        # Print Trust Scores to show Sybil isolation
         avg_h_trust = sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
         avg_m_trust = sum(T_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
         print(f"Avg Trust Score (Honest):        {avg_h_trust:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_trust:.4f}")
-
+        # Append telemetry data to history
         self.history.append(
             {
                 "epoch": self.epoch,
@@ -626,9 +600,6 @@ class Engine:
 
         self._process_governance_proposals(inflation_rate, total_cred, active_proposals)
         self._tally_votes_and_update_status(total_cred, active_proposals)
-
-        self.R_res -= M_epoch
-        self.circulating_supply += M_epoch
 
         self._calculate_telemetry(epoch_repaid_principal, T_scores, total_cred, active_proposals)
 
