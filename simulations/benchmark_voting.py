@@ -55,13 +55,12 @@ def benchmark_honest_voting(engine):
     ]
 
     # Honest agents vote
-    for a_id, balance in active_honest:
-        for p in reasonable_proposals:
-            # Vote yes on reasonable proposals
-            p.cast_vote(a_id, balance, True, epoch)
-        for p in extreme_proposals:
-            # Vote no on extreme proposals
-            p.cast_vote(a_id, balance, False, epoch)
+    updates_yes = Proposal.create_batch_updates(active_honest, True, epoch)
+    updates_no = Proposal.create_batch_updates(active_honest, False, epoch)
+    for p in reasonable_proposals:
+        p.cast_votes_batch(updates_yes)
+    for p in extreme_proposals:
+        p.cast_votes_batch(updates_no)
 
 
 def benchmark_malicious_voting(engine):
@@ -89,11 +88,12 @@ def benchmark_malicious_voting(engine):
     ]
 
     # Malicious agents vote
-    for m_id, balance in active_malicious:
-        for p in target_malicious:
-            p.cast_vote(m_id, balance, True, epoch)
-        for p in other_malicious:
-            p.cast_vote(m_id, balance, False, epoch)
+    updates_yes = Proposal.create_batch_updates(active_malicious, True, epoch)
+    updates_no = Proposal.create_batch_updates(active_malicious, False, epoch)
+    for p in target_malicious:
+        p.cast_votes_batch(updates_yes)
+    for p in other_malicious:
+        p.cast_votes_batch(updates_no)
 
 
 def run_benchmark():
