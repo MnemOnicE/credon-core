@@ -40,12 +40,14 @@ class Proposal:
             "vote": vote,
         }
 
-    def cast_votes_batch(self, active_agents, vote, current_epoch):
+    @staticmethod
+    def create_batch_updates(active_agents, vote, current_epoch):
         """
-        [EXPLANATORY: cast_votes_batch]
-        [IDENTIFIER: cast_votes_batch]
+        [EXPLANATORY: create_batch_updates]
+        [IDENTIFIER: create_batch_updates]
+        [DIRECTIONAL: val]
         """
-        updates = {
+        return {
             agent_id: {
                 "amount": amount,
                 "epoch_staked": current_epoch,
@@ -53,6 +55,12 @@ class Proposal:
             }
             for agent_id, amount in active_agents
         }
+
+    def cast_votes_batch(self, updates):
+        """
+        [EXPLANATORY: cast_votes_batch]
+        [IDENTIFIER: cast_votes_batch]
+        """
         self.votes.update(updates)
 
     def update_conviction(self, alpha, t_max, current_epoch):
