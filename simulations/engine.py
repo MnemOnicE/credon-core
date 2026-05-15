@@ -432,12 +432,12 @@ class Engine:
             ]
 
             # Honest agents vote
+            updates_yes = Proposal.create_batch_updates(active_honest, True, self.epoch)
+            updates_no = Proposal.create_batch_updates(active_honest, False, self.epoch)
             for p in reasonable_proposals:
-                # Vote yes on reasonable proposals
-                p.cast_votes_batch(active_honest, True, self.epoch)
+                p.cast_votes_batch(updates_yes)
             for p in extreme_proposals:
-                # Vote no on extreme proposals
-                p.cast_votes_batch(active_honest, False, self.epoch)
+                p.cast_votes_batch(updates_no)
 
         # Malicious Agent Behavior
         # They always want to maximize rho to trigger hyperinflation
