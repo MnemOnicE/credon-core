@@ -40,10 +40,13 @@ class Proposal:
             "vote": vote,
         }
 
+    @staticmethod
+    def create_batch_updates(active_agents, vote, current_epoch):
     def cast_votes_batch(self, active_agents, vote=None, current_epoch=None):
         """
-        [EXPLANATORY: cast_votes_batch]
-        [IDENTIFIER: cast_votes_batch]
+        [EXPLANATORY: create_batch_updates]
+        [IDENTIFIER: create_batch_updates]
+        [DIRECTIONAL: val]
         """
         if vote is not None and current_epoch is not None:
             updates = {
@@ -74,6 +77,13 @@ class Proposal:
             }
             for agent_id, amount in active_agents
         }
+
+    def cast_votes_batch(self, updates):
+        """
+        [EXPLANATORY: cast_votes_batch]
+        [IDENTIFIER: cast_votes_batch]
+        """
+        self.votes.update(updates)
 
     def update_conviction(self, alpha, t_max, current_epoch):
         """
