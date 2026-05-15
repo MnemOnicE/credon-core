@@ -418,7 +418,9 @@ class Engine:
 
             # Honest agents vote
             for p in reasonable_proposals:
-                for a_id, balance in active_honest:
+                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for a_id, balance in active_honest})
+            for p in extreme_proposals:
+                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for a_id, balance in active_honest})
                     p.cast_vote(a_id, balance, True, self.epoch)
             for p in extreme_proposals:
                 for a_id, balance in active_honest:
