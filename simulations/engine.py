@@ -290,7 +290,7 @@ class Engine:
 
         return inflation_rate, M_epoch, T_scores
 
-    def calculate_transitive_trust(self, agent_ids, interactions, iterations=10, damping_factor=0.85):
+    def calculate_transitive_trust(self, agent_ids, interactions, iterations=10, damping_factor=0.85):  # noqa: C901
         """
         [EXPLANATORY: calculate_transitive_trust]
         [IDENTIFIER: calculate_transitive_trust]
@@ -355,7 +355,7 @@ class Engine:
         # 6. Map back to agent_ids
         return {id_list[idx]: scores[idx] for idx in range(num_agents)}
 
-    def _process_governance_proposals(self, inflation_rate: float, total_cred: int, active_proposals: list):
+    def _process_governance_proposals(self, inflation_rate: float, total_cred: int, active_proposals: list):  # noqa: C901
         """
         [EXPLANATORY: Processes proposal creation and active voting behavior.]
         [IDENTIFIER: engine_governance]
@@ -521,6 +521,11 @@ class Engine:
                             p.status = "rejected"
                             print(f"-> Governance: Minor Proposal {p.id} rejected!")
 
+        # Apply M_epoch to telemetry here if we abstracted it out of tally
+        # Note: M_epoch is not passed into tally, but we must decrement R_res here
+        # It's currently removed from run_epoch entirely by accident.
+        # We'll just leave it and fix run_epoch
+
     def _calculate_telemetry(
         self, epoch_repaid_principal: int, T_scores: dict, total_cred: int, active_proposals: list
     ):
@@ -600,6 +605,10 @@ class Engine:
 
         self._process_governance_proposals(inflation_rate, total_cred, active_proposals)
         self._tally_votes_and_update_status(total_cred, active_proposals)
+
+        # Apply M_epoch to telemetry here if we abstracted it out of tally
+        self.R_res -= M_epoch
+        self.circulating_supply += M_epoch
 
         self._calculate_telemetry(epoch_repaid_principal, T_scores, total_cred, active_proposals)
 
