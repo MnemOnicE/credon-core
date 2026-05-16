@@ -304,13 +304,16 @@ class Engine:
         return T
 
     # ---------------- Simulation Step ----------------
-    def _simulate_honest_agents_behavior(self) -> int:
+    def run_epoch(self):  # noqa: C901
         """
-        [EXPLANATORY: Simulates interactions and actions for all honest agents.]
-        [IDENTIFIER: engine_sim_honest]
-        [DIRECTIONAL: val]
+        [EXPLANATORY: run_epoch]
+        [IDENTIFIER: run_epoch]
+        [DIRECTIONAL: dict]
         """
+        self.epoch += 1
         epoch_repaid_principal = 0
+
+        # 1. Honest Agents Act (Simulate a network graph of interactions)
         honest_ids = self.honest_ids
         for a_id in honest_ids:
             sponsor = self.agents[a_id]
@@ -336,6 +339,9 @@ class Engine:
                         candidate.receive_loan(self.L)
                         self.active_loans.append(loan_record)
 
+                        # At graduation (for simplicity we resolve in same epoch here for volume tracking,
+                        # or track it over time. Let's resolve immediately for this mathematical proof loop)
+
                         # Candidate repays loan L
                         if candidate.repay_loan(self.L, loan_record):
                             epoch_repaid_principal += self.L
@@ -344,16 +350,14 @@ class Engine:
                             self.recent_activity[candidate.id] += 1
 
                             # Both get bonds back. Reward R is minted later, let's distribute it here
+                            # Assuming 1 R to sponsor, 1 R to candidate
                             sponsor.process_graduation(self.B, self.R)
                             candidate.process_graduation(self.B, self.R)
+                            # Decrease circulating supply temporarily since R is drawn from M later
+                            # Or we can just let circulating supply float and track it
                             self.circulating_supply += self.R * 2
-        return epoch_repaid_principal
 
-    def _simulate_malicious_agents_behavior(self):
-        """
-        [EXPLANATORY: Simulates sybil attacks and malicious behavior for attackers.]
-        [IDENTIFIER: engine_sim_malicious]
-        """
+        # 2. Malicious Agents Act (Sybil Swarm)
         malicious_ids = self.malicious_ids
         for m_id in malicious_ids:
             attacker = self.agents[m_id]
@@ -377,15 +381,17 @@ class Engine:
                     # Sybil ATTACK: Default to steal L!
                     attacker.execute_default(loan_record)
 
+                    # Because they defaulted, they keep L, but lose B_c and B_s
+                    # Volume is NOT added to epoch_repaid_principal.
+                    # Circulating supply decreases by the burned bonds
                     self.circulating_supply -= self.B * 2
-                    self.circulating_supply += self.L
+                    self.circulating_supply += self.L  # But they kept L
+                    # Actually L was already in circulating supply (from the protocol's TVL theoretically).
+                    # If loan L comes from TVL, the net change in circulating supply of users is:
+                    # -2B (burned) + L (kept).
+                    # Net: User loses 2B - L.
 
-    def _calculate_monetary_policy(self, epoch_repaid_principal: int) -> tuple[float, float, dict]:
-        """
-        [EXPLANATORY: Calculates trust scores and updates monetary policy metrics.]
-        [IDENTIFIER: engine_calc_monetary_policy]
-        [DIRECTIONAL: val]
-        """
+        # 3. Monetary Policy & Trust Math at Epoch Boundary
         T_scores = self.calculate_trust_scores()
 
         # Calculate Delta R_res (verified volume sub-linear throttle)
@@ -393,28 +399,30 @@ class Engine:
         self.R_res += delta_r
 
         # Calculate Minted amount
+        # [EXPLANATORY: Throttles M_epoch during Sybil swarms so it never exceeds 1% of the circulating supply.]
+        # [IDENTIFIER: engine_calc_m_epoch]
         M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
 
         # Calculate inflation rate
         inflation_rate = (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
-        return inflation_rate, M_epoch, T_scores
 
-    def _process_governance_proposals(self, inflation_rate: float, total_cred: int, active_proposals: list):  # noqa: C901
-        """
-        [EXPLANATORY: Agents create and vote on governance proposals.]
-        [IDENTIFIER: engine_process_gov_proposals]
-        """
-        honest_ids = self.honest_ids
-        malicious_ids = self.malicious_ids
+        # 3.5 Governance: Agents Propose and Vote
+
+        # Total $CRED in network
+        total_cred = sum(agent.cred_balance for agent in self.agents.values())
+
+        active_proposals = [p for p in self.proposals if p.status == "active"]
 
         # Honest Agent Behavior
         if total_cred > 0:
             target_rho = None
             if inflation_rate > 0.02:
                 target_rho = max(0.01, self.rho - 0.01)
+            # Lowering the threshold so they propose for simulation purposes
             elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
                 target_rho = min(0.50, self.rho + 0.01)
 
+            # Check if there is an active proposal matching the target
             honest_proposal = None
             if target_rho is not None:
                 honest_proposal = next(
@@ -422,6 +430,7 @@ class Engine:
                 )
 
             if target_rho is not None and honest_proposal is None:
+                # Find an honest agent with $CRED to propose
                 proposer = next(
                     (self.agents[a_id] for a_id in honest_ids if self.agents[a_id].cred_balance > 0),
                     None,
@@ -439,6 +448,7 @@ class Engine:
                     active_proposals.append(new_prop)
                     honest_proposal = new_prop
 
+            # Categorize proposals once for efficiency
             reasonable_proposals = []
             extreme_proposals = []
             for p in active_proposals:
@@ -447,35 +457,28 @@ class Engine:
                 else:
                     extreme_proposals.append(p)
 
+            # Pre-filter agents with balance to avoid redundant dictionary lookups
             active_honest = [
                 (a_id, self.agents[a_id].cred_balance) for a_id in honest_ids if self.agents[a_id].cred_balance > 0
             ]
 
             # Honest agents vote
             for p in reasonable_proposals:
-                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for a_id, balance in active_honest})
-            for p in extreme_proposals:
-                p.votes.update({a_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for a_id, balance in active_honest})
+                for a_id, balance in active_honest:
                     p.cast_vote(a_id, balance, True, self.epoch)
             for p in extreme_proposals:
                 for a_id, balance in active_honest:
                     p.cast_vote(a_id, balance, False, self.epoch)
-            updates_yes = Proposal.create_batch_updates(active_honest, True, self.epoch)
-            updates_no = Proposal.create_batch_updates(active_honest, False, self.epoch)
-            for p in reasonable_proposals:
-                # Vote yes on reasonable proposals
-                p.cast_votes_batch(updates_yes)
-            for p in extreme_proposals:
-                # Vote no on extreme proposals
-                p.cast_votes_batch(updates_no)
 
         # Malicious Agent Behavior
+        # They always want to maximize rho to trigger hyperinflation
         malicious_target_rho = 0.50
         malicious_proposal = next(
             (p for p in active_proposals if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9)), None
         )
 
         if malicious_proposal is None and malicious_ids:
+            # Malicious agent tries to propose if they have $CRED (unlikely if they default)
             m_proposer = next(
                 (self.agents[m_id] for m_id in malicious_ids if self.agents[m_id].cred_balance > 0),
                 None,
@@ -493,6 +496,7 @@ class Engine:
                 active_proposals.append(new_prop)
                 malicious_proposal = new_prop
 
+        # Categorize proposals for malicious agents
         target_malicious = []
         other_malicious = []
         for p in active_proposals:
@@ -501,40 +505,40 @@ class Engine:
             else:
                 other_malicious.append(p)
 
+        # Pre-filter malicious agents with balance
         active_malicious = [
             (m_id, self.agents[m_id].cred_balance) for m_id in malicious_ids if self.agents[m_id].cred_balance > 0
         ]
 
         # Malicious agents vote
         for p in target_malicious:
-            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": True} for m_id, balance in active_malicious})
-        for p in other_malicious:
-            p.votes.update({m_id: {"amount": balance, "epoch_staked": self.epoch, "vote": False} for m_id, balance in active_malicious})
+            for m_id, balance in active_malicious:
                 p.cast_vote(m_id, balance, True, self.epoch)
         for p in other_malicious:
             for m_id, balance in active_malicious:
                 p.cast_vote(m_id, balance, False, self.epoch)
-        updates_yes = Proposal.create_batch_updates(active_malicious, True, self.epoch)
-        updates_no = Proposal.create_batch_updates(active_malicious, False, self.epoch)
-        for p in target_malicious:
-            p.cast_votes_batch(updates_yes)
-        for p in other_malicious:
-            p.cast_votes_batch(updates_no)
 
-    def _tally_votes_and_update_status(self, total_cred: int, active_proposals: list):
-        """
-        [EXPLANATORY: Tallies votes for active proposals and executes or rejects them.]
-        [IDENTIFIER: engine_tally_votes]
-        """
+        # 3.6 Tally Votes and Update Status
         for p in active_proposals:
             if p.is_core:
+                # Update conviction y_t
                 _, _, _ = p.update_conviction(self.alpha_conviction, self.t_max, self.epoch)
 
-                max_conviction = total_cred * 1.0
+                # Check if conviction threshold is met
+                # Threshold: 20% of maximum theoretical network conviction
+                max_conviction = total_cred * 1.0  # multiplier maxes at 1.0
+                conviction_threshold = 0.20 * max_conviction
+
+                # For continuous voting, we need to compare y_t to something stable or max possible.
+                # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
+                # For this simulation, max steady state conviction = total_cred / (1 - alpha_conviction).
                 steady_state_max = (
                     max_conviction / (1 - self.alpha_conviction) if self.alpha_conviction < 1 else max_conviction
                 )
                 conviction_threshold = 0.20 * steady_state_max
+
+                # Quorum check (just simple check if total votes > quorum)
+                # Note: Conviction voting usually handles quorum implicitly by requiring enough y_t
 
                 if p.y_t_yes > conviction_threshold and p.y_t_yes > p.y_t_no:
                     self.rho = p.target_rho
@@ -544,32 +548,38 @@ class Engine:
                     p.status = "rejected"
                     print(f"-> Governance: Proposal {p.id} rejected due to high 'No' conviction.")
             else:
+                # Minor proposal - Discrete voting with dynamic quorums
+                # Get actual time-weighted voting power V_t, and total raw staked tokens.
                 v_t_yes, v_t_no, total_staked_in_vote = p.update_conviction(0, self.t_max, self.epoch)
 
+                # Check Quorum (total actual tokens staked regardless of time weight)
                 if total_staked_in_vote >= self.minor_quorum * total_cred:
+                    # Check Approval
                     total_v = v_t_yes + v_t_no
                     if total_v > 0:
                         if (v_t_yes / total_v) >= self.minor_approval:
+                            # Execute minor proposal (for this sim, just marking it done)
                             p.status = "executed"
                             print(f"-> Governance: Minor Proposal {p.id} executed!")
                         else:
                             p.status = "rejected"
                             print(f"-> Governance: Minor Proposal {p.id} rejected!")
 
-    def _calculate_telemetry(
-        self, epoch_repaid_principal: int, T_scores: dict, total_cred: int, active_proposals: list
-    ):
-        """
-        [EXPLANATORY: Calculates epoch telemetry and records metrics to history.]
-        [IDENTIFIER: engine_telemetry]
-        """
-        honest_ids = self.honest_ids
-        malicious_ids = self.malicious_ids
+        # Subtract minted amount from reservoir
+        self.R_res -= M_epoch
+        # Add to circulating supply (distributed across network conceptually)
+        self.circulating_supply += M_epoch
 
+        # 4. Expected Value / ROI Telemetry Math
+        # EV_honest = (p_success * R) - ((1 - p_success) * B)
+        # We assume p_success based on the TrustLedger is very high. Say p_success = 0.95
         p_success = 0.95
         ev_honest = (p_success * self.R) - ((1.0 - p_success) * self.B)
+
+        # EV_attacker = L - 2B
         ev_attacker = self.L - (2 * self.B)
 
+        # Calculate actual average ROI
         h_roi_total = sum((self.agents[a_id].balance - self.initial_balances[a_id]) for a_id in honest_ids)
         avg_h_roi = h_roi_total / len(honest_ids) if honest_ids else 0
 
@@ -589,11 +599,12 @@ class Engine:
         for p in active_proposals:
             print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
 
+        # Print Trust Scores to show Sybil isolation
         avg_h_trust = sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
         avg_m_trust = sum(T_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
         print(f"Avg Trust Score (Honest):        {avg_h_trust:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_trust:.4f}")
-
+        # Append telemetry data to history
         self.history.append(
             {
                 "epoch": self.epoch,
@@ -609,30 +620,6 @@ class Engine:
                 "total_cred": total_cred,
             }
         )
-
-    def run_epoch(self):
-        """
-        [EXPLANATORY: Orchestrates a single simulation epoch.]
-        [IDENTIFIER: run_epoch]
-        """
-        self.epoch += 1
-        print(f"\n--- Starting Epoch {self.epoch} ---")
-
-        epoch_repaid_principal = self._simulate_honest_agents_behavior()
-        self._simulate_malicious_agents_behavior()
-
-        inflation_rate, M_epoch, T_scores = self._calculate_monetary_policy(epoch_repaid_principal)
-
-        total_cred = sum(agent.cred_balance for agent in self.agents.values())
-        active_proposals = [p for p in self.proposals if p.status == "active"]
-
-        self._process_governance_proposals(inflation_rate, total_cred, active_proposals)
-        self._tally_votes_and_update_status(total_cred, active_proposals)
-
-        self.R_res -= M_epoch
-        self.circulating_supply += M_epoch
-
-        self._calculate_telemetry(epoch_repaid_principal, T_scores, total_cred, active_proposals)
 
     def get_results(self):
         """
