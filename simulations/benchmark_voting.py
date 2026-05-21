@@ -8,6 +8,7 @@ import random
 import math
 from simulations.engine import Engine, Proposal
 
+
 def setup_benchmark(num_honest=500, num_malicious=100, num_proposals=50):
     """
     [EXPLANATORY: Sets up the Engine for benchmarking, giving agents cred and creating proposals.]
@@ -27,6 +28,7 @@ def setup_benchmark(num_honest=500, num_malicious=100, num_proposals=50):
         engine.next_proposal_id += 1
 
     return engine
+
 
 def benchmark_honest_voting(engine):
     """
@@ -61,6 +63,7 @@ def benchmark_honest_voting(engine):
             # Vote no on extreme proposals
             p.cast_vote(a_id, balance, False, epoch)
 
+
 def benchmark_malicious_voting(engine):
     """
     [EXPLANATORY: Executes the malicious voting logic block for benchmarking.]
@@ -92,6 +95,7 @@ def benchmark_malicious_voting(engine):
         for p in other_malicious:
             p.cast_vote(m_id, balance, False, epoch)
 
+
 def run_benchmark():
     """
     [EXPLANATORY: Executes the timeit benchmark and prints the results.]
@@ -112,6 +116,7 @@ def run_benchmark():
     print(f"Average time per malicious voting execution: {m_avg:.4f} ms")
 
     print(f"Total average voting time: {h_avg + m_avg:.4f} ms")
+
 
 if __name__ == "__main__":
     run_benchmark()
