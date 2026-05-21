@@ -29,8 +29,6 @@ class Agent:
         [EXPLANATORY: interact_with]
         [IDENTIFIER: interact_with]
         """
-        if other_agent_id == self.id:
-            return
         if other_agent_id not in self.interactions:
             self.interactions[other_agent_id] = 0
         self.interactions[other_agent_id] += value
