@@ -63,7 +63,7 @@ class Proposal:
         """
         self.votes.update(updates)
 
-    def update_conviction(self, alpha, t_max, current_epoch):
+    def update_conviction(self, alpha):
         """
         [EXPLANATORY: update_conviction]
         [IDENTIFIER: update_conviction]
@@ -91,8 +91,6 @@ class Proposal:
 
         return v_t_yes, v_t_no, total_staked_in_vote
 
-        return v_t_yes, v_t_no, total_staked_in_vote
-
 
 class Engine:
     """
@@ -113,7 +111,7 @@ class Engine:
         self.R = 75  # Integrity reward
 
         # ---------------- Monetary Policy Parameters ----------------
-        self.R_res = 0.0  # Rewards Reservoir
+        self.r_res = 0.0  # Rewards Reservoir
         self.circulating_supply = 0.0
         self.rho = 0.05
         self.M_EPOCH_CIRCULATING_SUPPLY_CAP = 0.01  # Reward Release Rate (5%)
@@ -151,9 +149,9 @@ class Engine:
             self.circulating_supply += self.agents[agent_id].balance
 
         # Track Time-Weighted Conviction W for all agents using EMA
-        self.W = {agent_id: 0.0 for agent_id in self.agents}
+        self.W = dict.fromkeys(self.agents, 0.0)
         # Track past epoch verified activity for EMA calculation
-        self.recent_activity = {agent_id: 0 for agent_id in self.agents}
+        self.recent_activity = dict.fromkeys(self.agents, 0)
 
         # Track initial balances to compute ROI later
         self.initial_balances = {a_id: self.agents[a_id].balance for a_id in self.agents}
@@ -175,6 +173,24 @@ class Engine:
                 self.honest_ids.append(a_id)
 
     # ---------------- TrustLedger Functions ----------------
+    def _build_trust_edges(self):
+        """
+        [EXPLANATORY: _build_trust_edges]
+        [IDENTIFIER: _build_trust_edges]
+        [DIRECTIONAL: val]
+        """
+        id_to_idx = {agent_id: i for i, agent_id in enumerate(self.agents)}
+        edges = []
+        for u_id in self.agents:
+            u = self.agents[u_id]
+            if u.interactions:
+                u_idx = id_to_idx[u_id]
+                total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
+                if total_interactions > 0:
+                    for v_id, weight in u.interactions.items():
+                        edges.append((u_idx, id_to_idx[v_id], math.sqrt(weight) / total_interactions))
+        return edges, id_to_idx, len(self.agents)
+
     def calculate_transitive_trust(self):
         """Calculates EigenTrust-style E(u) for all agents using integer-based arrays.
         [EXPLANATORY: calculate_transitive_trust]
@@ -199,17 +215,36 @@ class Engine:
                         edges.append((u_idx, id_to_idx[v_id], math.sqrt(weight) / total_interactions))
 
         for _ in range(iterations):
-            new_E = [0.0] * num_agents
+            new_e = [0.0] * num_agents
             for u_idx, v_idx, weight in edges:
-                new_E[v_idx] += E[u_idx] * weight
+                new_e[v_idx] += E[u_idx] * weight
 
-            total_E = sum(new_E)
-            if total_E > 0:
-                E = [v / total_E * num_agents for v in new_E]
+            total_e = sum(new_e)
+            if total_e > 0:
+                E = [v / total_e * num_agents for v in new_e]
             else:
-                E = new_E
+                E = new_e
 
         return {agent_ids[i]: E[i] for i in range(num_agents)}
+
+    def _build_pagerank_weights(self):
+        """
+        [EXPLANATORY: _build_pagerank_weights]
+        [IDENTIFIER: _build_pagerank_weights]
+        [DIRECTIONAL: val]
+        """
+        num_agents = len(self.agents)
+        if num_agents == 0:
+            return {}, 0
+        agent_normalized_weights = {}
+        for u_id in self.agents:
+            u = self.agents[u_id]
+            out_degree = len(u.interactions)
+            if out_degree > 0:
+                agent_normalized_weights[u_id] = {v_id: 1.0 / out_degree for v_id in u.interactions}
+            else:
+                agent_normalized_weights[u_id] = {}
+        return agent_normalized_weights, num_agents
 
     def calculate_social_connectivity(self):
         """Calculates PageRank-style P(u) for all agents.
@@ -235,20 +270,20 @@ class Engine:
 
         for _ in range(iterations):
             sink_contribution = 0.0
-            new_P = {agent_id: (1.0 - d) / num_agents for agent_id in self.agents}
+            new_p = {agent_id: (1.0 - d) / num_agents for agent_id in self.agents}
 
             for u_id, normalized_interactions in agent_normalized_weights.items():
                 p_u_d = P[u_id] * d
                 for v_id, norm_weight in normalized_interactions.items():
-                    new_P[v_id] += p_u_d * norm_weight
+                    new_p[v_id] += p_u_d * norm_weight
 
             for u_id in sink_ids:
                 sink_contribution += d * (P[u_id] / num_agents)
 
             if sink_contribution > 0:
                 for v_id in self.agents:
-                    new_P[v_id] += sink_contribution
-            P = new_P
+                    new_p[v_id] += sink_contribution
+            P = new_p
 
         # Scale to meaningful values roughly matching E
         return {k: v * num_agents for k, v in P.items()}
@@ -261,7 +296,6 @@ class Engine:
         """
         for agent_id in self.agents:
             activity = self.recent_activity[agent_id]
-            # EMA = (Value_today * decay) + (EMA_yesterday * (1 - decay))
             self.W[agent_id] = (activity * self.ema_decay) + (self.W[agent_id] * (1 - self.ema_decay))
             self.recent_activity[agent_id] = 0  # Reset for next epoch
         return self.W
@@ -282,6 +316,56 @@ class Engine:
         return T
 
     # ---------------- Simulation Step ----------------
+    def _simulate_honest_actions(self):
+        """
+        [EXPLANATORY: _simulate_honest_actions]
+        [IDENTIFIER: _simulate_honest_actions]
+        """
+        honest_ids = self.honest_ids
+        for a_id in honest_ids:
+            sponsor = self.agents[a_id]
+            other_honest_ids = [hid for hid in honest_ids if hid != a_id]
+            if other_honest_ids:
+                num_interactions = self.rng.randint(1, min(5, len(other_honest_ids)))
+                interacted_with = self.rng.sample(other_honest_ids, num_interactions)
+                for i_id in interacted_with:
+                    sponsor.interact_with(i_id, value=self.rng.randint(1, 5))
+            c_id = self.rng.choice(honest_ids)
+            loan_record = sponsor.try_sponsor(c_id, self.epoch)
+            if loan_record:
+                candidate = self.agents[c_id]
+                if candidate.post_candidate_bond() == self.B:
+                    loan_record["B_c"] = self.B
+                    loan_record["L"] = self.L
+                    candidate.receive_loan(self.L)
+                    self.active_loans.append(loan_record)
+                    self.recent_activity[a_id] += 1
+                    self.recent_activity[c_id] += 1
+
+    def _simulate_malicious_actions(self):
+        """
+        [EXPLANATORY: _simulate_malicious_actions]
+        [IDENTIFIER: _simulate_malicious_actions]
+        """
+        malicious_ids = self.malicious_ids
+        for m_id in malicious_ids:
+            sponsor = self.agents[m_id]
+            for other_m in malicious_ids:
+                if other_m != m_id:
+                    sponsor.interact_with(other_m, value=self.rng.randint(10, 20))
+            c_id = self.rng.choice(malicious_ids)
+            loan_record = sponsor.try_sponsor(c_id, self.epoch)
+            if loan_record:
+                candidate = self.agents[c_id]
+                b_c = candidate.post_candidate_bond()
+                if loan_record and b_c == self.B:
+                    loan_record["B_c"] = self.B
+                    loan_record["L"] = self.L
+                    candidate.receive_loan(self.L)
+                    self.active_loans.append(loan_record)
+                    self.recent_activity[m_id] += 1
+                    self.recent_activity[c_id] += 1
+
     def run_epoch(self):  # noqa: C901
         """
         [EXPLANATORY: run_epoch]
@@ -370,19 +454,19 @@ class Engine:
                     # Net: User loses 2B - L.
 
         # 3. Monetary Policy & Trust Math at Epoch Boundary
-        T_scores = self.calculate_trust_scores()
+        t_scores = self.calculate_trust_scores()
 
         # Calculate Delta R_res (verified volume sub-linear throttle)
         delta_r = math.sqrt(epoch_repaid_principal)
-        self.R_res += delta_r
+        self.r_res += delta_r
 
         # Calculate Minted amount
-        # [EXPLANATORY: Throttles M_epoch during Sybil swarms so it never exceeds 1% of the circulating supply.]
+        # [EXPLANATORY: Throttles m_epoch during Sybil swarms so it never exceeds 1% of the circulating supply.]
         # [IDENTIFIER: engine_calc_m_epoch]
-        M_epoch = min(self.rho * self.R_res, 0.01 * self.circulating_supply)
+        m_epoch = min(self.rho * self.r_res, 0.01 * self.circulating_supply)
 
         # Calculate inflation rate
-        inflation_rate = (M_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
+        inflation_rate = (m_epoch / self.circulating_supply) if self.circulating_supply > 0 else 0
 
         # 3.5 Governance: Agents Propose and Vote
 
@@ -397,7 +481,7 @@ class Engine:
             if inflation_rate > 0.02:
                 target_rho = max(0.01, self.rho - 0.01)
             # Lowering the threshold so they propose for simulation purposes
-            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
+            elif inflation_rate < 0.02 and self.r_res > (0.001 * self.circulating_supply):
                 target_rho = min(0.50, self.rho + 0.01)
 
             # Check if there is an active proposal matching the target
@@ -424,7 +508,7 @@ class Engine:
                     self.proposals.append(new_prop)
                     self.next_proposal_id += 1
                     active_proposals.append(new_prop)
-                    honest_proposal = new_prop
+                    pass
 
             # Categorize proposals once for efficiency
             reasonable_proposals = []
@@ -472,7 +556,7 @@ class Engine:
                 self.proposals.append(new_prop)
                 self.next_proposal_id += 1
                 active_proposals.append(new_prop)
-                malicious_proposal = new_prop
+                pass
 
         # Categorize proposals for malicious agents
         target_malicious = []
@@ -505,7 +589,7 @@ class Engine:
                 # Check if conviction threshold is met
                 # Threshold: 20% of maximum theoretical network conviction
                 max_conviction = total_cred * 1.0  # multiplier maxes at 1.0
-                conviction_threshold = 0.20 * max_conviction
+                pass
 
                 # For continuous voting, we need to compare y_t to something stable or max possible.
                 # In Aragon style, threshold = beta - (alpha * R) / (total_supply - y_t_yes) or similar.
@@ -544,9 +628,9 @@ class Engine:
                             print(f"-> Governance: Minor Proposal {p.id} rejected!")
 
         # Subtract minted amount from reservoir
-        self.R_res -= M_epoch
+        self.r_res -= m_epoch
         # Add to circulating supply (distributed across network conceptually)
-        self.circulating_supply += M_epoch
+        self.circulating_supply += m_epoch
 
         # 4. Expected Value / ROI Telemetry Math
         # EV_honest = (p_success * R) - ((1 - p_success) * B)
@@ -566,7 +650,7 @@ class Engine:
 
         print(f"\n=== EPOCH {self.epoch} SUMMARY ===")
         print(f"Epoch Verified Volume (Repaid L): {epoch_repaid_principal}")
-        print(f"Rewards Reservoir R_res (Locked):  {self.R_res:.2f} CRE")
+        print(f"Rewards Reservoir R_res (Locked):  {self.r_res:.2f} CRE")
         print(f"Circulating Supply:              {self.circulating_supply:.2f} CRE")
         print(f"Game Theory EV(Honest):          {ev_honest:.2f} CRE per interaction")
         print(f"Game Theory EV(Attacker):        {ev_attacker:.2f} CRE per interaction (Attacker ROI)")
@@ -578,8 +662,8 @@ class Engine:
             print(f"  Prop {p.id}: Target rho={p.target_rho:.4f}, y_t_yes={p.y_t_yes:.2f}, y_t_no={p.y_t_no:.2f}")
 
         # Print Trust Scores to show Sybil isolation
-        avg_h_trust = sum(T_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
-        avg_m_trust = sum(T_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
+        avg_h_trust = sum(t_scores[a] for a in honest_ids) / len(honest_ids) if honest_ids else 0
+        avg_m_trust = sum(t_scores[a] for a in malicious_ids) / len(malicious_ids) if malicious_ids else 0
         print(f"Avg Trust Score (Honest):        {avg_h_trust:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_trust:.4f}")
         # Append telemetry data to history
@@ -587,7 +671,7 @@ class Engine:
             {
                 "epoch": self.epoch,
                 "verified_volume": epoch_repaid_principal,
-                "rewards_reservoir": self.R_res,
+                "rewards_reservoir": self.r_res,
                 "circulating_supply": self.circulating_supply,
                 "ev_honest": ev_honest,
                 "ev_attacker": ev_attacker,
