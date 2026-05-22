@@ -24,8 +24,6 @@ jobs:
 
       - name: Setup CML
         uses: iterative/setup-cml@v3
-        with:
-          vega: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
