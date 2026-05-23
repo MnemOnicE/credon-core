@@ -86,8 +86,8 @@ Example:
 
 ```python
 agent = Agent("H_0")
-agent.interact_with("H_1" value=10)
-agent.interact_with("H_1" value=5)
+agent.interact_with("H_1", value=10)
+agent.interact_with("H_1", value=5)
 print(agent.interactions["H_1"])
 ```
 
