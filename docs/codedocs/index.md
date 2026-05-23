@@ -36,7 +36,7 @@ This gives you a single object that evolves the lending market, accumulates repu
 
 <Callout type="warn">Credon Core is not published as an npm package. The tabs below are present to match the docs shell, but every path ends with cloning the repository and installing Python dependencies because that is the only runnable surface in this checkout.</Callout>
 
-" "bun"]}>
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
 <Tab value="npm">
 
 ```bash
