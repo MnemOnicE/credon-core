@@ -21,12 +21,14 @@ Source signature:
 
 ```python
 def sweep_leverage():
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def sweep_leverage() -> None:
+    ...
 ```
 
 Runs the engine across loan amounts `100` through `800` in steps of `100`, with:
@@ -57,12 +59,14 @@ Source signature:
 
 ```python
 def sweep_reward_rate():
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def sweep_reward_rate() -> None:
+    ...
 ```
 
 Runs the engine across reward release rates `[0.01, 0.05, 0.10, 0.20]`, each for twenty epochs, and generates `docs/results/circulating_supply_vs_rho.png`.
@@ -77,7 +81,7 @@ sweep_reward_rate()
 
 ## Combined usage
 
-The module's `__main__` block runs both sweeps back to back:
+The module's `__main__` block runs both sweeps back-to-back:
 
 ```bash
 python simulations/sweep.py

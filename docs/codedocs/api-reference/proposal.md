@@ -21,6 +21,7 @@ Source signature:
 
 ```python
 def __init__(self, prop_id, proposer_id, target_rho, creation_epoch, is_core=True):
+    ...
 ```
 
 Effective typed signature:
@@ -34,6 +35,7 @@ def __init__(
     creation_epoch: int,
     is_core: bool = True,
 ) -> None:
+    ...
 ```
 
 | Parameter | Type | Default | Description |
@@ -67,12 +69,14 @@ Source signature:
 
 ```python
 def cast_vote(self, agent_id, amount, vote, current_epoch):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def cast_vote(self, agent_id: str, amount: int | float, vote: bool, current_epoch: int) -> None:
+    ...
 ```
 
 Stores or replaces one agent's voting record.
@@ -90,7 +94,9 @@ print(proposal.votes["H_1"])
 Source signature:
 
 ```python
+@staticmethod
 def create_batch_updates(active_agents, vote, current_epoch):
+    ...
 ```
 
 Effective typed signature:
@@ -102,6 +108,7 @@ def create_batch_updates(
     vote: bool,
     current_epoch: int,
 ) -> dict[str, dict[str, object]]:
+    ...
 ```
 
 Builds a vote-update dictionary that can be passed to `cast_votes_batch`.
@@ -123,12 +130,14 @@ Source signature:
 
 ```python
 def cast_votes_batch(self, updates):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def cast_votes_batch(self, updates: dict[str, dict[str, object]]) -> None:
+    ...
 ```
 
 Merges precomputed updates into the proposal vote map.
@@ -148,6 +157,7 @@ Source signature:
 
 ```python
 def update_conviction(self, alpha, t_max, current_epoch):
+    ...
 ```
 
 Effective typed signature:
@@ -159,6 +169,7 @@ def update_conviction(
     t_max: int,
     current_epoch: int,
 ) -> tuple[float, float, float]:
+    ...
 ```
 
 Recomputes the current epoch's yes and no stake totals, updates `y_t_yes` and `y_t_no`, and returns `(v_t_yes, v_t_no, total_staked_in_vote)`.

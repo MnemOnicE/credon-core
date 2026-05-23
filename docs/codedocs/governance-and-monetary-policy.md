@@ -99,8 +99,8 @@ proposal = Proposal(
     is_core=True,
 )
 
-proposal.cast_vote(agent_id="H_1" amount=10 vote=True, current_epoch=1)
-proposal.cast_vote(agent_id="H_2" amount=5 vote=False, current_epoch=1)
+proposal.cast_vote(agent_id="H_1", amount=10, vote=True, current_epoch=1)
+proposal.cast_vote(agent_id="H_2", amount=5, vote=False, current_epoch=1)
 
 print(proposal.update_conviction(alpha=0.8, t_max=5, current_epoch=1))
 print(proposal.y_t_yes, proposal.y_t_no)
@@ -110,8 +110,11 @@ print(proposal.y_t_yes, proposal.y_t_no)
 
 This example lets the engine create and process proposals naturally.
 
+
+This example assumes you are running the script from the repository root (e.g. `python -m ...`) or have set `PYTHONPATH` to include the project root, so that the `simulations.engine` import works.
+
 ```python
-from engine import Engine
+from simulations.engine import Engine
 
 engine = Engine(num_honest=20, num_malicious=5)
 

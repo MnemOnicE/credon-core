@@ -21,6 +21,7 @@ Source signature:
 
 ```python
 def __init__(self, agent_id, is_malicious=False, b=500, l_amount=400, r=75):
+    ...
 ```
 
 Effective typed signature:
@@ -34,6 +35,7 @@ def __init__(
     l_amount: int = 400,
     r: int = 75,
 ) -> None:
+    ...
 ```
 
 | Parameter | Type | Default | Description |
@@ -72,12 +74,14 @@ Source signature:
 
 ```python
 def interact_with(self, other_agent_id, value=1):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def interact_with(self, other_agent_id: str, value: int | float = 1) -> None:
+    ...
 ```
 
 Records weighted interactions in the local adjacency map.
@@ -97,12 +101,14 @@ Source signature:
 
 ```python
 def try_sponsor(self, candidate_id, current_epoch):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def try_sponsor(self, candidate_id: str, current_epoch: int) -> dict[str, object] | None:
+    ...
 ```
 
 Debits one sponsor bond and returns a pending loan record if balance is sufficient.
@@ -121,12 +127,14 @@ Source signature:
 
 ```python
 def post_candidate_bond(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def post_candidate_bond(self) -> int:
+    ...
 ```
 
 Debits the candidate-side bond and returns the amount posted, or `0` when balance is insufficient.
@@ -145,12 +153,14 @@ Source signature:
 
 ```python
 def receive_loan(self, loan_amount):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def receive_loan(self, loan_amount: int | float) -> None:
+    ...
 ```
 
 Credits the agent with loan principal.
@@ -169,12 +179,14 @@ Source signature:
 
 ```python
 def process_graduation(self, bond_returned, reward):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def process_graduation(self, bond_returned: int | float, reward: int | float) -> None:
+    ...
 ```
 
 Returns the bond, applies the reward, and increments `cred_balance`.
@@ -193,12 +205,14 @@ Source signature:
 
 ```python
 def execute_default(self, loan_record):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def execute_default(self, loan_record: dict[str, object]) -> dict[str, object]:
+    ...
 ```
 
 Marks the loan record as defaulted. The balance-side consequences are handled by the caller.
@@ -217,12 +231,14 @@ Source signature:
 
 ```python
 def repay_loan(self, loan_amount, loan_record):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def repay_loan(self, loan_amount: int | float, loan_record: dict[str, object]) -> bool:
+    ...
 ```
 
 Repays the loan if balance is sufficient and marks the record as `repaid`.

@@ -21,12 +21,14 @@ Source signature:
 
 ```python
 def __init__(self, num_honest=20, num_malicious=5):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def __init__(self, num_honest: int = 20, num_malicious: int = 5) -> None:
+    ...
 ```
 
 | Parameter | Type | Default | Description |
@@ -61,7 +63,7 @@ The constructor raises `ValueError` when `num_honest + num_malicious <= 0`, and 
 Example:
 
 ```python
-from engine import Engine
+from simulations.engine import Engine
 
 engine = Engine(num_honest=10, num_malicious=2)
 print(len(engine.agents))
@@ -76,12 +78,14 @@ Source signature:
 
 ```python
 def calculate_transitive_trust(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def calculate_transitive_trust(self) -> dict[str, float]:
+    ...
 ```
 
 Computes the EigenTrust-style component `E` from the interaction graph.
@@ -100,12 +104,14 @@ Source signature:
 
 ```python
 def calculate_social_connectivity(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def calculate_social_connectivity(self) -> dict[str, float]:
+    ...
 ```
 
 Computes the PageRank-style component `P`, including sink redistribution.
@@ -124,12 +130,14 @@ Source signature:
 
 ```python
 def update_time_weighting(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def update_time_weighting(self) -> dict[str, float]:
+    ...
 ```
 
 Updates the EMA-based recency term `W` from `recent_activity` and resets the per-epoch activity counters.
@@ -148,12 +156,14 @@ Source signature:
 
 ```python
 def calculate_trust_scores(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def calculate_trust_scores(self) -> dict[str, float]:
+    ...
 ```
 
 Combines `E`, `P`, and `W` into the final trust score `T`.
@@ -172,12 +182,14 @@ Source signature:
 
 ```python
 def run_epoch(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def run_epoch(self) -> None:
+    ...
 ```
 
 Runs one full simulation epoch: honest interactions, honest sponsored loans, malicious self-sponsored defaults, trust updates, reservoir math, governance voting, proposal execution, and telemetry recording.
@@ -196,12 +208,14 @@ Source signature:
 
 ```python
 def get_results(self):
+    ...
 ```
 
 Effective typed signature:
 
 ```python
 def get_results(self) -> list[dict[str, float | int]]:
+    ...
 ```
 
 Returns the telemetry history accumulated so far.
@@ -220,7 +234,7 @@ print(engine.get_results())
 ### Baseline run
 
 ```python
-from engine import Engine
+from simulations.engine import Engine
 
 engine = Engine(num_honest=20, num_malicious=5)
 for _ in range(15):
