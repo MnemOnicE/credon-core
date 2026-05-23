@@ -183,7 +183,7 @@ Example:
 
 ```python
 agent = Agent("H_0")
-agent.process_graduation(bond_returned=500 reward=75)
+agent.process_graduation(bond_returned=500, reward=75)
 print(agent.balance, agent.cred_balance)
 ```
 
