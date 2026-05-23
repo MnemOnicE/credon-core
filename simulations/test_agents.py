@@ -109,3 +109,38 @@ class TestAgent:
 
         assert result == 0
         assert agent.balance == initial_balance
+
+    def test_interact_with_new_agent(self, agent):
+        """
+        [EXPLANATORY: test_interact_with_new_agent]
+        [IDENTIFIER: test_interact_with_new_agent]
+        """
+        agent.interact_with("H_1")
+        assert agent.interactions["H_1"] == 1
+
+    def test_interact_with_existing_agent(self, agent):
+        """
+        [EXPLANATORY: test_interact_with_existing_agent]
+        [IDENTIFIER: test_interact_with_existing_agent]
+        """
+        agent.interact_with("H_1")
+        agent.interact_with("H_1", value=2)
+        assert agent.interactions["H_1"] == 3
+
+    def test_interact_with_negative_value(self, agent):
+        """
+        [EXPLANATORY: test_interact_with_negative_value]
+        [IDENTIFIER: test_interact_with_negative_value]
+        """
+        agent.interact_with("H_1", value=-1)
+        assert agent.interactions["H_1"] == -1
+        agent.interact_with("H_1", value=-2)
+        assert agent.interactions["H_1"] == -3
+
+    def test_interact_with_self(self, agent):
+        """
+        [EXPLANATORY: test_interact_with_self]
+        [IDENTIFIER: test_interact_with_self]
+        """
+        agent.interact_with(agent.id)
+        assert agent.id not in agent.interactions
