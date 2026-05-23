@@ -76,12 +76,10 @@ Use this when the built-in sweep ranges are close but not exactly what you want.
 
 The fastest way to add your own leverage checkpoints is to copy the internal pattern used by `sweep_leverage()`.
 
-```bash
-python - <<'PY'
-import os
-import sys
+Make sure you run this from the repository root (or set `PYTHONPATH` so `simulations` is available):
 
-sys.path.insert(0, os.path.abspath("."))
+```bash
+PYTHONPATH=. python - <<'PY'
 from simulations.engine import Engine
 
 for loan_amount in (200, 400, 700):

@@ -18,8 +18,10 @@ Credon Core is a Python simulation framework for modeling trust-backed lending, 
 
 Credon Core turns those questions into a simulation loop. `simulations/agents.py` models honest and malicious actors, `simulations/engine.py` runs sponsored loans plus TrustLedger scoring and governance, and `simulations/sweep.py` generates charts for leverage and reward-policy experiments.
 
+This example assumes you are running the script from the repository root (or have set `PYTHONPATH` to include the project root) so that the `simulations.engine` import works.
+
 ```python
-from engine import Engine
+from simulations.engine import Engine
 
 engine = Engine(num_honest=20, num_malicious=5)
 
@@ -36,8 +38,8 @@ This gives you a single object that evolves the lending market, accumulates repu
 
 <Callout type="warn">Credon Core is not published as an npm package. The tabs below are present to match the docs shell, but every path ends with cloning the repository and installing Python dependencies because that is the only runnable surface in this checkout.</Callout>
 
-<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
-<Tab value="npm">
+<Tabs defaultValue="npm" values={["npm", "pnpm", "yarn", "bun"]}>
+<TabItem value="npm">
 
 ```bash
 git clone https://github.com/mnemonice/credon-core.git
@@ -45,8 +47,8 @@ cd credon-core
 python -m pip install pytest pandas matplotlib seaborn
 ```
 
-</Tab>
-<Tab value="pnpm">
+</TabItem>
+<TabItem value="pnpm">
 
 ```bash
 git clone https://github.com/mnemonice/credon-core.git
@@ -54,8 +56,8 @@ cd credon-core
 python -m pip install pytest pandas matplotlib seaborn
 ```
 
-</Tab>
-<Tab value="yarn">
+</TabItem>
+<TabItem value="yarn">
 
 ```bash
 git clone https://github.com/mnemonice/credon-core.git
@@ -63,8 +65,8 @@ cd credon-core
 python -m pip install pytest pandas matplotlib seaborn
 ```
 
-</Tab>
-<Tab value="bun">
+</TabItem>
+<TabItem value="bun">
 
 ```bash
 git clone https://github.com/mnemonice/credon-core.git
@@ -72,7 +74,7 @@ cd credon-core
 python -m pip install pytest pandas matplotlib seaborn
 ```
 
-</Tab>
+</TabItem>
 </Tabs>
 
 ## Quick start

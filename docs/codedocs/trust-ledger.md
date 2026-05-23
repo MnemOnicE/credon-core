@@ -76,7 +76,7 @@ The engine resets `recent_activity[agent_id]` after each update, so `W` captures
 You can inspect trust before any epochs run. With no interactions, all scores collapse toward zero because there is no graph to propagate through.
 
 ```python
-from engine import Engine
+from simulations.engine import Engine
 
 engine = Engine(num_honest=3, num_malicious=1)
 scores = engine.calculate_trust_scores()
@@ -91,15 +91,15 @@ That is a useful baseline when you are testing how much of the later separation 
 This example creates a small mutual-trust pocket to show how the transitive term can concentrate around connected participants.
 
 ```python
-from engine import Engine
+from simulations.engine import Engine
 
 engine = Engine(num_honest=3, num_malicious=1)
 
 for agent in engine.agents.values():
     agent.interactions = {}
 
-engine.agents["H_0"].interact_with("H_1" value=10)
-engine.agents["H_1"].interact_with("H_0" value=10)
+engine.agents["H_0"].interact_with("H_1", value=10)
+engine.agents["H_1"].interact_with("H_0", value=10)
 
 e_scores = engine.calculate_transitive_trust()
 p_scores = engine.calculate_social_connectivity()
