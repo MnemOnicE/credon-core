@@ -81,7 +81,7 @@ Example:
 
 ```python
 proposal = Proposal(1, "H_0", 0.06, 1)
-proposal.cast_vote("H_1" amount=10 vote=True, current_epoch=2)
+proposal.cast_vote("H_1", amount=10, vote=True, current_epoch=2)
 print(proposal.votes["H_1"])
 ```
 
