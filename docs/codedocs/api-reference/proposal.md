@@ -94,7 +94,6 @@ print(proposal.votes["H_1"])
 Source signature:
 
 ```python
-@staticmethod
 def create_batch_updates(active_agents, vote, current_epoch):
     ...
 ```
