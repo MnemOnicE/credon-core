@@ -71,7 +71,7 @@ print(attacker.balance)
 Source signature:
 
 ```python
-def interact_with(self, other_agent_id value=1):
+def interact_with(self, other_agent_id, value=1):
 ```
 
 Effective typed signature:
