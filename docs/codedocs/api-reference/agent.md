@@ -20,7 +20,7 @@ Source file: `simulations/agents.py`
 Source signature:
 
 ```python
-def __init__(self, agent_id, is_malicious=False b=500, l_amount=400 r=75):
+def __init__(self, agent_id, is_malicious=False, b=500, l_amount=400, r=75):
 ```
 
 Effective typed signature:
