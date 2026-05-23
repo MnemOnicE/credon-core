@@ -81,7 +81,7 @@ python - <<'PY'
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("/workspace/home/credon-core"))
+sys.path.insert(0, os.path.abspath("."))
 from simulations.engine import Engine
 
 for loan_amount in (200, 400, 700):
