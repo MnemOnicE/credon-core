@@ -1,0 +1,57 @@
+name: Benchmarks & Experiments Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  run-benchmarks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas matplotlib seaborn numpy nalgebra pytest
+
+      - name: Run Core Tests First
+        run: |
+          PYTHONPATH=. pytest simulations/
+
+      - name: Run Scientific Parameter Sweep (Lab Notebook)
+        run: |
+          PYTHONPATH=. python simulations/sweep.py
+
+      - name: Run Performance Benchmarks
+        run: |
+          PYTHONPATH=. python simulations/benchmark_trust.py
+          PYTHONPATH=. python simulations/benchmark_pagerank.py
+          PYTHONPATH=. python simulations/benchmark_cred.py
+          PYTHONPATH=. python simulations/benchmark_voting.py
+
+      - name: Upload Experiment Logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-logs
+          path: simulations/experiments/
+
+      - name: Upload Simulation Results & Config
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-results
+          path: |
+            docs/results/
+            deploy_config.json
