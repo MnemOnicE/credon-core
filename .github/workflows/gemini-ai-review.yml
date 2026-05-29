@@ -38,7 +38,7 @@ jobs:
           echo "✓ Required secrets validated"
 
       - name: Context7 Gemini Architecture Review
-        uses: coderabbitai/ai-pr-reviewer@v0.11
+        uses: coderabbitai/ai-pr-reviewer@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
