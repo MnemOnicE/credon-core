@@ -80,7 +80,15 @@ def sweep_leverage():
 
     if best_l is not None:
         print(f"Best leverage found: L={best_l}. Exporting config.")
-        tracker.export_config({"L": best_l, "B": b_value})
+        config_path = "deploy_config.json"
+        config = {}
+        if os.path.exists(config_path):
+            import json
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        config["L"] = best_l
+        config["B"] = b_value
+        tracker.export_config(config)
 
     combined_df = pd.concat(all_results, ignore_index=True)
 
