@@ -164,6 +164,8 @@ def sweep_reward_rate():
 
         results = engine.get_results()
         df = pd.DataFrame(results)
+        if df.empty:
+            continue
         df["rho"] = rho
         all_results.append(df)
 
