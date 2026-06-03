@@ -168,34 +168,44 @@ class Engine:
         [IDENTIFIER: calculate_transitive_trust]
         [DIRECTIONAL: val]
         """
-        E = {agent_id: 1.0 for agent_id in self.agents}  # Initial flat trust
+        agent_ids = list(self.agents.keys())
+        num_agents = len(agent_ids)
+        id_to_idx = {agent_id: i for i, agent_id in enumerate(agent_ids)}
+
+        # Initial flat trust as a list
+        E_list = [1.0] * num_agents
         iterations = 5  # Small number of power iterations to converge local graph
 
         # Pre-compute total interactions and normalized weights to avoid redundant calculations
-        agent_normalized_weights = {}
-        for u in self.agents.values():
+        # and flatten the interaction graph for fast iteration
+        flattened_interactions = []
+        for u_id in agent_ids:
+            u = self.agents[u_id]
+            u_idx = id_to_idx[u_id]
             total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
-            normalized_interactions = {}
             if total_interactions > 0:
                 for v_id, weight in u.interactions.items():
-                    normalized_interactions[v_id] = math.sqrt(weight) / total_interactions
-            agent_normalized_weights[u.id] = normalized_interactions
+                    if v_id in id_to_idx:
+                        v_idx = id_to_idx[v_id]
+                        normalized_weight = math.sqrt(weight) / total_interactions
+                        flattened_interactions.append((u_idx, v_idx, normalized_weight))
 
         for _ in range(iterations):
-            new_E = {agent_id: 0.0 for agent_id in self.agents}
-            for u_id, normalized_interactions in agent_normalized_weights.items():
-                if normalized_interactions:
-                    for v_id, normalized_weight in normalized_interactions.items():
-                        # u vouches for v_id
-                        new_E[v_id] += E[u_id] * normalized_weight
+            new_E_list = [0.0] * num_agents
+            for u_idx, v_idx, normalized_weight in flattened_interactions:
+                # u vouches for v
+                new_E_list[v_idx] += E_list[u_idx] * normalized_weight
 
             # Normalize to prevent explosion
-            total_E = sum(new_E.values())
+            total_E = sum(new_E_list)
             if total_E > 0:
-                E = {k: v / total_E * len(self.agents) for k, v in new_E.items()}
+                scale = num_agents / total_E
+                E_list = [v * scale for v in new_E_list]
             else:
-                E = new_E
-        return E
+                E_list = new_E_list
+
+        # Convert back to dictionary
+        return {agent_ids[i]: E_list[i] for i in range(num_agents)}
 
     def calculate_social_connectivity(self):
         """Calculates PageRank-style P(u) for all agents.
