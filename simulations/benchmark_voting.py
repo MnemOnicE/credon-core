@@ -5,6 +5,7 @@
 
 import timeit
 import random
+import math
 from simulations.engine import Engine, Proposal
 
 def setup_benchmark(num_honest=500, num_malicious=100, num_proposals=50):
