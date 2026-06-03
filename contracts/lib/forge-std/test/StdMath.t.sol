@@ -1,15 +1,15 @@
-// SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+// SPDX-License-Identifier: MIT OR Apache-2.0
+pragma solidity >=0.8.13 <0.9.0;
 
-import "../src/StdMath.sol";
-import "../src/Test.sol";
+import {stdMath} from "../src/StdMath.sol";
+import {Test, stdError} from "../src/Test.sol";
 
 contract StdMathMock is Test {
-    function exposed_percentDelta(uint256 a, uint256 b) public pure returns (uint256) {
+    function exposedPercentDelta(uint256 a, uint256 b) public pure returns (uint256) {
         return stdMath.percentDelta(a, b);
     }
 
-    function exposed_percentDelta(int256 a, int256 b) public pure returns (uint256) {
+    function exposedPercentDelta(int256 a, int256 b) public pure returns (uint256) {
         return stdMath.percentDelta(a, b);
     }
 }
@@ -52,12 +52,7 @@ contract StdMathTest is Test {
     }
 
     function testFuzz_GetDelta_Uint(uint256 a, uint256 b) external pure {
-        uint256 manualDelta;
-        if (a > b) {
-            manualDelta = a - b;
-        } else {
-            manualDelta = b - a;
-        }
+        uint256 manualDelta = a > b ? a - b : b - a;
 
         uint256 delta = stdMath.delta(a, b);
 
@@ -130,18 +125,13 @@ contract StdMathTest is Test {
         assertEq(stdMath.percentDelta(5000, uint256(2500)), 1e18);
         assertEq(stdMath.percentDelta(7500, uint256(2500)), 2e18);
 
-        vm.expectRevert(stdError.divisionError);
-        stdMathMock.exposed_percentDelta(uint256(1), 0);
+        vm.expectRevert("stdMath percentDelta(uint256,uint256): Divisor is zero");
+        stdMathMock.exposedPercentDelta(uint256(1), 0);
     }
 
     function testFuzz_GetPercentDelta_Uint(uint192 a, uint192 b) external pure {
         vm.assume(b != 0);
-        uint256 manualDelta;
-        if (a > b) {
-            manualDelta = a - b;
-        } else {
-            manualDelta = b - a;
-        }
+        uint256 manualDelta = a > b ? a - b : b - a;
 
         uint256 manualPercentDelta = manualDelta * 1e18 / b;
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -173,8 +163,8 @@ contract StdMathTest is Test {
         assertEq(stdMath.percentDelta(5000, int256(2500)), 1e18);
         assertEq(stdMath.percentDelta(7500, int256(2500)), 2e18);
 
-        vm.expectRevert(stdError.divisionError);
-        stdMathMock.exposed_percentDelta(int256(1), 0);
+        vm.expectRevert("stdMath percentDelta(int256,int256): Divisor is zero");
+        stdMathMock.exposedPercentDelta(int256(1), 0);
     }
 
     function testFuzz_GetPercentDelta_Int(int192 a, int192 b) external pure {

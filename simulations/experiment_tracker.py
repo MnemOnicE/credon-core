@@ -11,6 +11,10 @@ class ExperimentTracker:
     """
 
     def __init__(self, log_dir: str = "simulations/experiments"):
+        """
+        [EXPLANATORY: Initializes the experiment tracker and creates the log directory if needed.]
+        [IDENTIFIER: __init__]
+        """
         self.log_dir = log_dir
         os.makedirs(self.log_dir, exist_ok=True)
         self.experiments: List[Dict[str, Any]] = []

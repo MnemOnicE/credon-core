@@ -27,6 +27,11 @@ jobs:
 
     steps:
       - name: Checkout Repository
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
         uses: actions/checkout@v6
 
       - name: Validate Required Secrets
@@ -38,7 +43,7 @@ jobs:
           echo "✓ Required secrets validated"
 
       - name: Context7 Gemini Architecture Review
-        uses: coderabbitai/ai-pr-reviewer@latest
+        uses: coderabbitai/ai-pr-reviewer@263e8df31f82210fb9d08e5c3e7d69298eefc8c1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

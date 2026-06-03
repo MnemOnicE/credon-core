@@ -1,4 +1,5 @@
 import os
+import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -80,7 +81,16 @@ def sweep_leverage():
 
     if best_l is not None:
         print(f"Best leverage found: L={best_l}. Exporting config.")
-        tracker.export_config({"L": best_l, "B": b_value})
+
+        config_path = "deploy_config.json"
+        config = {}
+        if os.path.exists(config_path):
+            with open(config_path, "r") as f:
+                config = json.load(f)
+
+        config["L"] = best_l
+        config["B"] = b_value
+        tracker.export_config(config)
 
     combined_df = pd.concat(all_results, ignore_index=True)
 
@@ -102,25 +112,26 @@ def sweep_leverage():
     fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=True)
     fig.suptitle("Trust Score Divergence Over Time")
     for i, l_val in enumerate([100, 400, 800]):
-        df = divergence_data[l_val]
-        ax = axes[i]
-        sns.lineplot(data=df, x="epoch", y="avg_h_trust", label="Honest Trust", ax=ax, marker="o")
-        sns.lineplot(
-            data=df,
-            x="epoch",
-            y="avg_m_trust",
-            label="Malicious Trust",
-            ax=ax,
-            marker="s",
-        )
-        ax.set_title(f"Loan = {l_val}")
-        ax.set_xlabel("Epoch")
-        if i == 0:
-            ax.set_ylabel("Average Trust Score")
-        else:
-            ax.set_ylabel("")
-        ax.grid(True)
-        ax.legend()
+        if divergence_data[l_val] is not None:
+            df = divergence_data[l_val]
+            ax = axes[i]
+            sns.lineplot(data=df, x="epoch", y="avg_h_trust", label="Honest Trust", ax=ax, marker="o")
+            sns.lineplot(
+                data=df,
+                x="epoch",
+                y="avg_m_trust",
+                label="Malicious Trust",
+                ax=ax,
+                marker="s",
+            )
+            ax.set_title(f"Loan = {l_val}")
+            ax.set_xlabel("Epoch")
+            if i == 0:
+                ax.set_ylabel("Average Trust Score")
+            else:
+                ax.set_ylabel("")
+            ax.grid(True)
+            ax.legend()
     plt.tight_layout()
     plt.savefig("docs/results/trust_divergence.png")
     plt.close()
@@ -139,7 +150,7 @@ def sweep_reward_rate():
     all_results = []
 
     best_rho = None
-    best_metric = -float("inf")
+    best_metric = float("inf")
 
     for rho in rho_values:
         print(f"Running simulation for rho={rho}")
@@ -178,7 +189,7 @@ def sweep_reward_rate():
             success=success and is_stable,
         )
 
-        if success and is_stable and metrics["final_circulating_supply"] > best_metric:
+        if success and is_stable and metrics["final_circulating_supply"] < best_metric:
             best_metric = metrics["final_circulating_supply"]
             best_rho = rho
 
@@ -189,10 +200,13 @@ def sweep_reward_rate():
         config_path = "deploy_config.json"
         config = {}
         if os.path.exists(config_path):
-            import json
-
             with open(config_path, "r") as f:
                 config = json.load(f)
+
+        if "L" not in config:
+            config["L"] = 100
+        if "B" not in config:
+            config["B"] = 500
 
         config["rho"] = best_rho
         tracker.export_config(config)

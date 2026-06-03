@@ -1,7 +1,9 @@
 ls:
   simulations/*:
     .py: snake_case
-  contracts/*:
+  contracts/src/*:
+    .sol: PascalCase
+  contracts/test/*:
     .sol: PascalCase
   docs/*:
     .md: lowercase
@@ -11,3 +13,4 @@ ignore:
   - .github
   - node_modules
   - __pycache__
+  - contracts/lib
