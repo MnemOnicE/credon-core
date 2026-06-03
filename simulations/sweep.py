@@ -15,7 +15,7 @@ os.makedirs("docs/results", exist_ok=True)
 tracker = ExperimentTracker()
 
 
-def sweep_leverage():
+def sweep_leverage(): # noqa: C901
     """
     [EXPLANATORY: sweep_leverage]
     [IDENTIFIER: sweep_leverage]
