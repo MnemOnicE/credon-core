@@ -309,7 +309,7 @@ class Engine:
                 candidate = self.agents[candidate_id]
 
                 # Check candidate bond
-                if candidate.post_candidate_bond() == self.B:
+                if math.isclose(candidate.post_candidate_bond(), self.B):
                     # Sponsor posts bond
                     loan_record = sponsor.try_sponsor(candidate_id, self.epoch)
                     if loan_record:
@@ -352,7 +352,7 @@ class Engine:
                 b_c = attacker.post_candidate_bond()
                 loan_record = attacker.try_sponsor(fake_candidate_id, self.epoch)
 
-                if loan_record and b_c == self.B:
+                if loan_record and math.isclose(b_c, self.B):
                     attacker.receive_loan(self.L)
                     self.active_loans.append(loan_record)
 
