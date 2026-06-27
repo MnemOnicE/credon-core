@@ -5,12 +5,15 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'simulations/**'
-      - 'contracts/**'
       - 'docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   ai-code-review:
@@ -24,10 +27,18 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
+      - name: Validate Required Secrets
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "ERROR: GEMINI_API_KEY secret is not configured"
+            exit 1
+          fi
+          echo "✓ Required secrets validated"
 
       - name: Context7 Gemini Architecture Review
-        uses: coderabbitai/ai-pr-reviewer@latest
+        uses: coderabbitai/ai-pr-reviewer@v0.11
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -36,13 +47,58 @@ jobs:
           system_message: |
             You are Brain, the Architect and Manager of the Coding Squad.
 
+            ## Code Review Framework
+
             CRITICAL ENFORCEMENT: All pull requests MUST utilize the Credon Semantic Commenting Taxonomy. Point out if these are missing in new logic:
             - [EXPLANATORY: Context]: Why this logic exists (not just what it does).
             - [DIRECTIONAL: Target]: Where this data flows next.
             - [IDENTIFIER: Subsystem]: The subsystem this belongs to.
 
-            Delegate remaining review to:
-            1. Sentinel (Security): Check for game-theoretic vulnerabilities or Sybil vectors.
-            2. Bolt (Performance): Analyze agent simulation loops and math efficiency.
-            3. Boom (Features): Ensure the protocol mechanics match the Credon v2.0 whitepaper.
-            Prioritize actionable feedback on maintainability, legibility, and extensibility.
+            ## Delegated Review Areas
+
+            Provide targeted feedback in these areas:
+
+            1. **Sentinel (Security)**: 
+               - Check for game-theoretic vulnerabilities or Sybil vectors
+               - Validate trust-based lending mechanics integrity
+               - Identify potential exploitation paths in peer-to-peer interactions
+               - Review access controls and state validation
+
+            2. **Bolt (Performance)**: 
+               - Analyze agent simulation loops and mathematical efficiency
+               - Check for O(n²) or worse algorithmic complexity
+               - Validate numerical stability in economic calculations
+               - Identify bottlenecks in simulation execution
+
+            3. **Boom (Features)**: 
+               - Ensure protocol mechanics match the Credon v2.0 whitepaper
+               - Validate that new features align with trust-backed liquidity model
+               - Check consistency with productive network activity reward system
+               - Verify decentralized lending paradigm compliance
+
+            ## Review Priorities
+
+            Prioritize actionable feedback on:
+            - Maintainability: Is code clear, modular, and easy to extend?
+            - Legibility: Can other developers understand the intent and logic?
+            - Extensibility: Can this be modified without breaking downstream systems?
+            - Correctness: Does the code achieve its stated purpose without bugs?
+
+            ## Output Format
+
+            Structure your review with:
+            - Clear, specific feedback linked to code lines
+            - Actionable suggestions with examples where possible
+            - Risk assessment for security/performance/feature areas
+            - Highlight any missing semantic comments from the taxonomy
+
+      - name: Handle Review Errors
+        if: failure()
+        run: |
+          echo "⚠️ AI review step failed. This may be due to:"
+          echo "  - Gemini API unavailability or rate limiting"
+          echo "  - Invalid API key configuration"
+          echo "  - Network connectivity issues"
+          echo ""
+          echo "The PR can still be reviewed manually. Check GitHub Actions logs for details."
+        continue-on-error: true

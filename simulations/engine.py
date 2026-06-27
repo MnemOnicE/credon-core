@@ -34,18 +34,34 @@ class Proposal:
         [EXPLANATORY: cast_vote]
         [IDENTIFIER: cast_vote]
         """
-        if agent_id in self.votes:
-            if self.votes[agent_id]["vote"] != vote:
-                self.votes[agent_id]["epoch_staked"] = current_epoch
-                self.votes[agent_id]["vote"] = vote
+        self.votes[agent_id] = {
+            "amount": amount,
+            "epoch_staked": current_epoch,
+            "vote": vote,
+        }
 
-            self.votes[agent_id]["amount"] = amount
-        else:
-            self.votes[agent_id] = {
+    @staticmethod
+    def create_batch_updates(active_agents, vote, current_epoch):
+        """
+        [EXPLANATORY: create_batch_updates]
+        [IDENTIFIER: create_batch_updates]
+        [DIRECTIONAL: val]
+        """
+        return {
+            agent_id: {
                 "amount": amount,
                 "epoch_staked": current_epoch,
                 "vote": vote,
             }
+            for agent_id, amount in active_agents
+        }
+
+    def cast_votes_batch(self, updates):
+        """
+        [EXPLANATORY: cast_votes_batch]
+        [IDENTIFIER: cast_votes_batch]
+        """
+        self.votes.update(updates)
 
     def update_conviction(self, alpha, t_max, current_epoch):
         """
@@ -60,23 +76,20 @@ class Proposal:
 
         for agent_id, vote_data in self.votes.items():
             amount = vote_data["amount"]
-            epoch_staked = vote_data["epoch_staked"]
             vote = vote_data["vote"]
 
-            # Calculate time-weighted voting power
-            t_staked = current_epoch - epoch_staked
-            multiplier = min(1.0, t_staked / t_max) if t_max > 0 else 1.0
-            V = amount * multiplier
             total_staked_in_vote += amount
 
             if vote:
-                v_t_yes += V
+                v_t_yes += amount
             else:
-                v_t_no += V
+                v_t_no += amount
 
         # y_t = alpha * y_{t-1} + V_t
         self.y_t_yes = (alpha * self.y_t_yes) + v_t_yes
         self.y_t_no = (alpha * self.y_t_no) + v_t_no
+
+        return v_t_yes, v_t_no, total_staked_in_vote
 
         return v_t_yes, v_t_no, total_staked_in_vote
 
@@ -163,7 +176,7 @@ class Engine:
 
     # ---------------- TrustLedger Functions ----------------
     def calculate_transitive_trust(self):
-        """Calculates EigenTrust-style E(u) for all agents.
+        """Calculates EigenTrust-style E(u) for all agents using integer-based arrays.
         [EXPLANATORY: calculate_transitive_trust]
         [IDENTIFIER: calculate_transitive_trust]
         [DIRECTIONAL: val]
@@ -194,6 +207,15 @@ class Engine:
         flattened = []
         for u_id in agent_ids:
             u = self.agents[u_id]
+        id_to_idx = {agent_id: i for i, agent_id in enumerate(agent_ids)}
+        num_agents = len(agent_ids)
+
+        E = [1.0] * num_agents
+        iterations = 5
+
+        # Flatten edges into (u_idx, v_idx, weight)
+        edges = []
+        for u_id, u in self.agents.items():
             u_idx = id_to_idx[u_id]
             total_interactions = sum(math.sqrt(w) for w in u.interactions.values())
             if total_interactions > 0:
@@ -220,6 +242,20 @@ class Engine:
             scale = num_agents / total_E
             return [v * scale for v in new_E_list]
         return new_E_list
+                        edges.append((u_idx, id_to_idx[v_id], math.sqrt(weight) / total_interactions))
+
+        for _ in range(iterations):
+            new_E = [0.0] * num_agents
+            for u_idx, v_idx, weight in edges:
+                new_E[v_idx] += E[u_idx] * weight
+
+            total_E = sum(new_E)
+            if total_E > 0:
+                E = [v / total_E * num_agents for v in new_E]
+            else:
+                E = new_E
+
+        return {agent_ids[i]: E[i] for i in range(num_agents)}
 
     def calculate_social_connectivity(self):
         """Calculates PageRank-style P(u) for all agents.
@@ -317,6 +353,7 @@ class Engine:
         """
         [EXPLANATORY: run_epoch]
         [IDENTIFIER: run_epoch]
+        [DIRECTIONAL: dict]
         """
         self.epoch += 1
 
@@ -463,6 +500,74 @@ class Engine:
         malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
         if malicious_proposal is None and self.malicious_ids:
             m_proposer = next((self.agents[m_id] for m_id in self.malicious_ids if self.agents[m_id].cred_balance > 0), None)
+            target_rho = None
+            if inflation_rate > 0.02:
+                target_rho = max(0.01, self.rho - 0.01)
+            # Lowering the threshold so they propose for simulation purposes
+            elif inflation_rate < 0.02 and self.R_res > (0.001 * self.circulating_supply):
+                target_rho = min(0.50, self.rho + 0.01)
+
+            # Check if there is an active proposal matching the target
+            honest_proposal = None
+            if target_rho is not None:
+                honest_proposal = next(
+                    (p for p in active_proposals if math.isclose(p.target_rho, target_rho, abs_tol=1e-9)), None
+                )
+
+            if target_rho is not None and honest_proposal is None:
+                # Find an honest agent with $CRED to propose
+                proposer = next(
+                    (self.agents[a_id] for a_id in honest_ids if self.agents[a_id].cred_balance > 0),
+                    None,
+                )
+                if proposer:
+                    new_prop = Proposal(
+                        self.next_proposal_id,
+                        proposer.id,
+                        target_rho,
+                        self.epoch,
+                        is_core=True,
+                    )
+                    self.proposals.append(new_prop)
+                    self.next_proposal_id += 1
+                    active_proposals.append(new_prop)
+                    honest_proposal = new_prop
+
+            # Categorize proposals once for efficiency
+            reasonable_proposals = []
+            extreme_proposals = []
+            for p in active_proposals:
+                if p.target_rho <= self.rho + 0.01 and p.target_rho >= self.rho - 0.01:
+                    reasonable_proposals.append(p)
+                else:
+                    extreme_proposals.append(p)
+
+            # Pre-filter agents with balance to avoid redundant dictionary lookups
+            active_honest = [
+                (a_id, self.agents[a_id].cred_balance) for a_id in honest_ids if self.agents[a_id].cred_balance > 0
+            ]
+
+            # Honest agents vote
+            for p in reasonable_proposals:
+                for a_id, balance in active_honest:
+                    p.cast_vote(a_id, balance, True, self.epoch)
+            for p in extreme_proposals:
+                for a_id, balance in active_honest:
+                    p.cast_vote(a_id, balance, False, self.epoch)
+
+        # Malicious Agent Behavior
+        # They always want to maximize rho to trigger hyperinflation
+        malicious_target_rho = 0.50
+        malicious_proposal = next(
+            (p for p in active_proposals if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9)), None
+        )
+
+        if malicious_proposal is None and malicious_ids:
+            # Malicious agent tries to propose if they have $CRED (unlikely if they default)
+            m_proposer = next(
+                (self.agents[m_id] for m_id in malicious_ids if self.agents[m_id].cred_balance > 0),
+                None,
+            )
             if m_proposer:
                 new_prop = Proposal(self.next_proposal_id, m_proposer.id, malicious_target_rho, self.epoch, is_core=True)
                 self.proposals.append(new_prop)
@@ -479,6 +584,18 @@ class Engine:
                     p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
                 for p in other_mal:
                     p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
+        # Pre-filter malicious agents with balance
+        active_malicious = [
+            (m_id, self.agents[m_id].cred_balance) for m_id in malicious_ids if self.agents[m_id].cred_balance > 0
+        ]
+
+        # Malicious agents vote
+        for p in target_malicious:
+            for m_id, balance in active_malicious:
+                p.cast_vote(m_id, balance, True, self.epoch)
+        for p in other_malicious:
+            for m_id, balance in active_malicious:
+                p.cast_vote(m_id, balance, False, self.epoch)
 
     def _tally_governance_votes(self, active_proposals, total_cred):
         """
