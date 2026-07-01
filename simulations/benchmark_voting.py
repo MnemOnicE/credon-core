@@ -8,7 +8,6 @@ import random
 import math
 from simulations.engine import Engine, Proposal
 
-
 def setup_benchmark(num_honest=500, num_malicious=100, num_proposals=50):
     """
     [EXPLANATORY: Sets up the Engine for benchmarking, giving agents cred and creating proposals.]
@@ -29,7 +28,6 @@ def setup_benchmark(num_honest=500, num_malicious=100, num_proposals=50):
 
     return engine
 
-
 def benchmark_honest_voting(engine):
     """
     [EXPLANATORY: Executes the honest voting logic block for benchmarking.]
@@ -49,13 +47,16 @@ def benchmark_honest_voting(engine):
         else:
             extreme_proposals.append(p)
 
-    active_honest_agents = [engine.agents[a_id] for a_id in honest_ids if engine.agents[a_id].cred_balance > 0]
-
-    for p in reasonable_proposals:
-        p.cast_votes_batch(Proposal.create_batch_updates(active_honest_agents, True, epoch))
-    for p in extreme_proposals:
-        p.cast_votes_batch(Proposal.create_batch_updates(active_honest_agents, False, epoch))
-
+    # Honest agents vote
+    for a_id in honest_ids:
+        agent = engine.agents[a_id]
+        if agent.cred_balance > 0:
+            for p in reasonable_proposals:
+                # Vote yes on reasonable proposals
+                p.cast_vote(a_id, agent.cred_balance, True, epoch)
+            for p in extreme_proposals:
+                # Vote no on extreme proposals
+                p.cast_vote(a_id, agent.cred_balance, False, epoch)
 
 def benchmark_malicious_voting(engine):
     """
@@ -85,7 +86,6 @@ def benchmark_malicious_voting(engine):
             for p in other_malicious:
                 p.cast_vote(m_id, agent.cred_balance, False, epoch)
 
-
 def run_benchmark():
     """
     [EXPLANATORY: Executes the timeit benchmark and prints the results.]
@@ -106,7 +106,6 @@ def run_benchmark():
     print(f"Average time per malicious voting execution: {m_avg:.4f} ms")
 
     print(f"Total average voting time: {h_avg + m_avg:.4f} ms")
-
 
 if __name__ == "__main__":
     run_benchmark()
