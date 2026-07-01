@@ -47,6 +47,23 @@ class Proposal:
                 "vote": vote,
             }
 
+    @staticmethod
+    def create_batch_updates(active_agents, vote, current_epoch):
+        """
+        [EXPLANATORY: create_batch_updates]
+        [IDENTIFIER: create_batch_updates]
+        [DIRECTIONAL: val]
+        """
+        return [(agent.id, agent.cred_balance, vote, current_epoch) for agent in active_agents]
+
+    def cast_votes_batch(self, updates):
+        """
+        [EXPLANATORY: cast_votes_batch]
+        [IDENTIFIER: cast_votes_batch]
+        """
+        for agent_id, amount, vote, current_epoch in updates:
+            self.cast_vote(agent_id, amount, vote, current_epoch)
+
     def update_conviction(self, alpha, t_max, current_epoch):
         """
         [EXPLANATORY: update_conviction]
@@ -106,6 +123,7 @@ class Engine:
         self.M_EPOCH_CIRCULATING_SUPPLY_CAP = 0.01  # Reward Release Rate (5%)
 
         # ---------------- Governance Parameters ----------------
+        self.total_cred = 0
         self.proposals = []
         self.next_proposal_id = 1
         self.alpha_conviction = 0.8
@@ -388,8 +406,8 @@ class Engine:
         if candidate.repay_loan(self.L, loan_record):
             self.recent_activity[agent.id] += 1
             self.recent_activity[candidate.id] += 1
-            agent.process_graduation(self.B, self.R)
-            candidate.process_graduation(self.B, self.R)
+            self.total_cred += agent.process_graduation(self.B, self.R)
+            self.total_cred += candidate.process_graduation(self.B, self.R)
             self.circulating_supply += self.R * 2
             return self.L
         return 0
@@ -446,14 +464,13 @@ class Engine:
         [IDENTIFIER: _handle_governance]
         [DIRECTIONAL: val]
         """
-        total_cred = sum(agent.cred_balance for agent in self.agents.values())
         active_proposals = [p for p in self.proposals if p.status == "active"]
 
-        if total_cred > 0:
+        if self.total_cred > 0:
             self._handle_honest_governance(inflation_rate, active_proposals)
             self._handle_malicious_governance(active_proposals)
 
-        return total_cred, active_proposals
+        return self.total_cred, active_proposals
 
     def _handle_honest_governance(self, inflation_rate, active_proposals):
         """
@@ -478,13 +495,13 @@ class Engine:
         reasonable = [p for p in active_proposals if abs(p.target_rho - self.rho) <= 0.0100000001]
         extreme = [p for p in active_proposals if abs(p.target_rho - self.rho) > 0.0100000001]
 
-        for a_id in self.honest_ids:
-            agent = self.agents[a_id]
-            if agent.cred_balance > 0:
-                for p in reasonable:
-                    p.cast_vote(a_id, agent.cred_balance, True, self.epoch)
-                for p in extreme:
-                    p.cast_vote(a_id, agent.cred_balance, False, self.epoch)
+        active_honest_agents = [self.agents[a_id] for a_id in self.honest_ids if self.agents[a_id].cred_balance > 0]
+
+        for p in reasonable:
+            p.cast_votes_batch(Proposal.create_batch_updates(active_honest_agents, True, self.epoch))
+
+        for p in extreme:
+            p.cast_votes_batch(Proposal.create_batch_updates(active_honest_agents, False, self.epoch))
 
     def _handle_malicious_governance(self, active_proposals):
         """
@@ -494,9 +511,13 @@ class Engine:
         malicious_target_rho = 0.50
         malicious_proposal = next((p for p in active_proposals if p.target_rho == malicious_target_rho), None)
         if malicious_proposal is None and self.malicious_ids:
-            m_proposer = next((self.agents[m_id] for m_id in self.malicious_ids if self.agents[m_id].cred_balance > 0), None)
+            m_proposer = next(
+                (self.agents[m_id] for m_id in self.malicious_ids if self.agents[m_id].cred_balance > 0), None
+            )
             if m_proposer:
-                new_prop = Proposal(self.next_proposal_id, m_proposer.id, malicious_target_rho, self.epoch, is_core=True)
+                new_prop = Proposal(
+                    self.next_proposal_id, m_proposer.id, malicious_target_rho, self.epoch, is_core=True
+                )
                 self.proposals.append(new_prop)
                 self.next_proposal_id += 1
                 active_proposals.append(new_prop)
@@ -504,13 +525,15 @@ class Engine:
         target_mal = [p for p in active_proposals if math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9)]
         other_mal = [p for p in active_proposals if not math.isclose(p.target_rho, malicious_target_rho, abs_tol=1e-9)]
 
-        for m_id in self.malicious_ids:
-            agent = self.agents[m_id]
-            if agent.cred_balance > 0:
-                for p in target_mal:
-                    p.cast_vote(m_id, agent.cred_balance, True, self.epoch)
-                for p in other_mal:
-                    p.cast_vote(m_id, agent.cred_balance, False, self.epoch)
+        active_malicious_agents = [
+            self.agents[m_id] for m_id in self.malicious_ids if self.agents[m_id].cred_balance > 0
+        ]
+
+        for p in target_mal:
+            p.cast_votes_batch(Proposal.create_batch_updates(active_malicious_agents, True, self.epoch))
+
+        for p in other_mal:
+            p.cast_votes_batch(Proposal.create_batch_updates(active_malicious_agents, False, self.epoch))
 
     def _tally_governance_votes(self, active_proposals, total_cred):
         """
@@ -548,8 +571,16 @@ class Engine:
         """
         ev_h = (0.95 * self.R) - (0.05 * self.B)
         ev_m = self.L - (2 * self.B)
-        avg_h_roi = sum(self.agents[a].balance - self.initial_balances[a] for a in self.honest_ids) / len(self.honest_ids) if self.honest_ids else 0
-        avg_m_roi = sum(self.agents[m].balance - self.initial_balances[m] for m in self.malicious_ids) / len(self.malicious_ids) if self.malicious_ids else 0
+        avg_h_roi = (
+            sum(self.agents[a].balance - self.initial_balances[a] for a in self.honest_ids) / len(self.honest_ids)
+            if self.honest_ids
+            else 0
+        )
+        avg_m_roi = (
+            sum(self.agents[m].balance - self.initial_balances[m] for m in self.malicious_ids) / len(self.malicious_ids)
+            if self.malicious_ids
+            else 0
+        )
 
         print(f"\n=== EPOCH {self.epoch} SUMMARY ===")
         print(f"Epoch Verified Volume (Repaid L): {repaid}")
@@ -569,12 +600,21 @@ class Engine:
         print(f"Avg Trust Score (Honest):        {avg_h_t:.4f}")
         print(f"Avg Trust Score (Malicious):     {avg_m_t:.4f}")
 
-        self.history.append({
-            "epoch": self.epoch, "verified_volume": repaid, "rewards_reservoir": self.R_res,
-            "circulating_supply": self.circulating_supply, "ev_honest": ev_h, "ev_attacker": ev_m,
-            "avg_h_roi": avg_h_roi, "avg_m_roi": avg_m_roi, "avg_h_trust": avg_h_t,
-            "avg_m_trust": avg_m_t, "total_cred": total_cred
-        })
+        self.history.append(
+            {
+                "epoch": self.epoch,
+                "verified_volume": repaid,
+                "rewards_reservoir": self.R_res,
+                "circulating_supply": self.circulating_supply,
+                "ev_honest": ev_h,
+                "ev_attacker": ev_m,
+                "avg_h_roi": avg_h_roi,
+                "avg_m_roi": avg_m_roi,
+                "avg_h_trust": avg_h_t,
+                "avg_m_trust": avg_m_t,
+                "total_cred": total_cred,
+            }
+        )
 
     def get_results(self):
         """
