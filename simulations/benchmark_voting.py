@@ -47,16 +47,14 @@ def benchmark_honest_voting(engine):
         else:
             extreme_proposals.append(p)
 
-    # Honest agents vote
-    for a_id in honest_ids:
-        agent = engine.agents[a_id]
-        if agent.cred_balance > 0:
-            for p in reasonable_proposals:
-                # Vote yes on reasonable proposals
-                p.cast_vote(a_id, agent.cred_balance, True, epoch)
-            for p in extreme_proposals:
-                # Vote no on extreme proposals
-                p.cast_vote(a_id, agent.cred_balance, False, epoch)
+    active_honest_agents = [engine.agents[a_id] for a_id in honest_ids if engine.agents[a_id].cred_balance > 0]
+    yes_batch = Proposal.create_batch_updates(active_honest_agents, True, epoch)
+    no_batch = Proposal.create_batch_updates(active_honest_agents, False, epoch)
+
+    for p in reasonable_proposals:
+        p.cast_votes_batch(yes_batch)
+    for p in extreme_proposals:
+        p.cast_votes_batch(no_batch)
 
 def benchmark_malicious_voting(engine):
     """
@@ -77,14 +75,14 @@ def benchmark_malicious_voting(engine):
         else:
             other_malicious.append(p)
 
-    # Malicious agents vote
-    for m_id in malicious_ids:
-        agent = engine.agents[m_id]
-        if agent.cred_balance > 0:
-            for p in target_malicious:
-                p.cast_vote(m_id, agent.cred_balance, True, epoch)
-            for p in other_malicious:
-                p.cast_vote(m_id, agent.cred_balance, False, epoch)
+    active_malicious_agents = [engine.agents[m_id] for m_id in malicious_ids if engine.agents[m_id].cred_balance > 0]
+    yes_batch = Proposal.create_batch_updates(active_malicious_agents, True, epoch)
+    no_batch = Proposal.create_batch_updates(active_malicious_agents, False, epoch)
+
+    for p in target_malicious:
+        p.cast_votes_batch(yes_batch)
+    for p in other_malicious:
+        p.cast_votes_batch(no_batch)
 
 def run_benchmark():
     """
