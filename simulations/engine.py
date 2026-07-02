@@ -470,7 +470,7 @@ class Engine:
             self._handle_honest_governance(inflation_rate, active_proposals)
             self._handle_malicious_governance(active_proposals)
 
-        return total_cred, active_proposals
+        return self.total_cred, active_proposals
 
     def _handle_honest_governance(self, inflation_rate, active_proposals):
         """
